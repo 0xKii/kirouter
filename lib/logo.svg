@@ -1,0 +1,14 @@
+<svg viewBox="0 0 48 48" width="24" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    KiRouter Logo — FINAL (Split Diamond + Center Node)
+    Concept: Multi-provider gateway with router hub
+    - Left triangle (outline)   = incoming requests
+    - Right triangle (filled)   = distributed responses
+    - Center node               = router/gateway hub (the focal signature)
+    - Minimal (3 elements), professional, modern
+    - Memorable: focal center = instant brand recall
+  -->
+  <path d="M22 8 L8 24 L22 40 Z" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M26 8 L40 24 L26 40 Z" fill="currentColor" opacity="0.9"/>
+  <circle cx="24" cy="24" r="2.6" fill="#0c0c0e" stroke="currentColor" stroke-width="2"/>
+</svg>

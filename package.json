@@ -1,0 +1,41 @@
+{
+  "name": "kirouter",
+  "version": "1.0.0",
+  "description": "Multi-provider LLM gateway with unified API, dashboard, and key rotation",
+  "type": "module",
+  "main": "lib/gateway.mjs",
+  "bin": {
+    "kirouter": "bin/kirouter.js"
+  },
+  "scripts": {
+    "start": "node bin/kirouter.js",
+    "test": "node --check lib/gateway.mjs"
+  },
+  "keywords": ["llm", "gateway", "api", "proxy", "openai", "anthropic", "grok", "claude", "ai"],
+  "author": "0xki",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "undici": "^6.0.0"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xki/kirouter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/0xki/kirouter/issues"
+  },
+  "homepage": "https://github.com/0xki/kirouter#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}
