@@ -1120,7 +1120,7 @@ function sparklineSvg(data, color, width, height){
 // Uses simple-icons.org CDN for real brand SVG logos when available.
 // URL: https://cdn.simpleicons.org/{slug}/{hex_color}
 // Fallback: colored circle with initial for providers without simple-icon.
-// Provider logos — sourced from 9router asset pack (107 real brand PNGs)
+// Provider logos — 107 real brand PNGs
 // Structure per entry: { file?: '<name>.png', init?: 'FALLBACK', color?, bg? }
 // - file: local /providers/<file> path (real brand logo)
 // - init: text fallback if no PNG or PNG fails to load
@@ -1926,7 +1926,7 @@ function filterAccountsList(base, tab, hfilter, search){
   return items;
 }
 function gatewayAccountRows(){
-  // Expand NON-GROK gateway providers into PER-KEY rows (9router-style).
+  // Expand NON-GROK gateway providers into PER-KEY rows.
   // CodeBuddy 100 keys → 100 rows di Accounts/Quota, bukan 1 card "100/100".
   var rows = [];
   (SUM && SUM.providers ? SUM.providers : []).forEach(function(p){
@@ -2915,7 +2915,7 @@ async function runConvert(body, count){
 
 function maskKey(k){ if(!k) return '—'; if(k.length<=10) return '••••'; return k.slice(0,6)+'…'+k.slice(-4); }
 
-// Catalog templates (9router-style cards). Connected state pulled from SUM.providers.
+// Catalog templates. Connected state pulled from SUM.providers.
 const PROV_CATALOG = [
   // OAuth
   {id:'kiro', section:'oauth', name:'Kiro AI', icon:'🟣', desc:'AWS CodeWhisperer OAuth', type:'openai', authMode:'oauth', baseUrl:'https://codewhisperer.us-east-1.amazonaws.com', models:'claude-sonnet-4.5|Claude Sonnet 4.5\nclaude-sonnet-4|Claude Sonnet 4\nclaude-haiku-4.5|Claude Haiku 4.5\nglm-5|GLM 5\nauto|Auto', comingSoon:true},
