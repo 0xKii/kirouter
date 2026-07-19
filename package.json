@@ -1,5 +1,5 @@
 {
-  "name": "kirouter",
+  "name": "@0xki/kirouter",
   "version": "1.0.0",
   "description": "Multi-provider LLM gateway with unified API, dashboard, and key rotation",
   "type": "module",
@@ -11,7 +11,17 @@
     "start": "node bin/kirouter.js",
     "test": "node --check lib/gateway.mjs"
   },
-  "keywords": ["llm", "gateway", "api", "proxy", "openai", "anthropic", "grok", "claude", "ai"],
+  "keywords": [
+    "llm",
+    "gateway",
+    "api",
+    "proxy",
+    "openai",
+    "anthropic",
+    "grok",
+    "claude",
+    "ai"
+  ],
   "author": "0xki",
   "license": "MIT",
   "engines": {

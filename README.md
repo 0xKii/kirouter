@@ -7,7 +7,7 @@ Multi-provider LLM gateway with unified API, dashboard, and automatic key rotati
 ### 1. Install globally
 
 ```shell
-npm install -g kirouter
+npm install -g @0xki/kirouter
 ```
 
 ### 2. Start KiRouter
@@ -45,7 +45,7 @@ kirouter --help             # Show help
 KiRouter checks for updates on startup. To update manually:
 
 ```shell
-npm i -g kirouter@latest --prefer-online
+npm i -g @0xki/kirouter@latest --prefer-online
 ```
 
 Or use the built-in command:

@@ -95,7 +95,7 @@ function checkForUpdates() {
   return new Promise((resolve) => {
     const req = https.get({
       hostname: 'registry.npmjs.org',
-      path: `/${PKG_NAME}/latest`,
+      path: `/${PKG_NAME.replace('/', '%2f')}/latest`,
       timeout: 5000,
       headers: { 'Accept': 'application/json' }
     }, (res) => {
@@ -123,7 +123,7 @@ async function showUpdateNotification() {
     log('  │  🎉 Update available!                │', c.yellow);
     log(`  │  v${update.current} → v${update.latest}                    │`, c.bright);
     log('  │                                      │', c.yellow);
-    log('  │  Run: npm i -g kirouter@latest       │', c.cyan);
+    log('  │  Run: npm i -g @0xki/kirouter@latest       │', c.cyan);
     log('  ╰──────────────────────────────────────╯', c.yellow);
     console.log('');
     return true;
