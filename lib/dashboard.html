@@ -3147,7 +3147,7 @@ function renderProvModal(){
     +'<div class="field"><label>Display Name</label><input id="pvName" type="text" value="'+(conn&&conn.name||cat.name||'')+'" placeholder="Provider name"></div>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-    +'<div class="field"><label>Type</label><select id="pvType"><option value="openai"'+(typ==='openai'?' selected':'')+'>OpenAI Compatible</option><option value="anthropic"'+(typ==='anthropic'?' selected':'')+'>Anthropic Compatible</option></select></div>'
+    +'<div class="field"><label>Type</label><select id="pvType"><option value="openai"'+(typ==='openai'?' selected':'')+'>OpenAI Compatible</option><option value="codebuddy"'+(typ==='codebuddy'?' selected':'')+'>CodeBuddy Native</option></select></div>'
     +'<div class="field"><label>Base URL *</label><input id="pvBase" type="text" value="'+base+'" placeholder="https://api.openai.com/v1"></div>'
     +'</div>'
     +'<div class="field" id="singleKeyBox"><label>API Key '+(mode==='manage'?'(optional add)':'*')+'</label><input id="pvKey" type="password" placeholder="'+(keyCount?'kosong = keep existing':'sk-... / ck_...')+'"></div>'
@@ -3563,10 +3563,11 @@ async function submitAddModel(btn){
   var id = document.getElementById('amId').value.trim();
   var label = document.getElementById('amLabel').value.trim();
   if(!prefix || !id){ toast('Provider & Model ID wajib diisi', 'warn'); return; }
-  // Strip accidental prefix from model ID (e.g. 'cbai/gpt-5.6-sol' -> 'gpt-5.6-sol')
-  if(id.indexOf('/')!==-1){
-    var parts = id.split('/');
-    if(parts[0]===prefix) id = parts.slice(1).join('/');
+  // CodeBuddy IDs are bare; strip accidental repeated provider prefixes.
+  // Do not do this for OpenRouter-style providers where namespaces are valid.
+  var conn = connectedMap()[prefix];
+  if(conn && conn.type==='codebuddy'){
+    while(id.indexOf(prefix+'/')===0) id=id.slice(prefix.length+1);
   }
   btn.disabled = true;
   try{
