@@ -761,6 +761,7 @@ tbody tr:last-child td{border-bottom:none}
 
 /* ============ UTILITIES ============ */
 .hidden{display:none!important}
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 
 /* ============ MICRO-INTERACTIONS (added v4.2) ============ */
 
@@ -930,7 +931,7 @@ body,.main,.sidebar,.topbar,.panel,.stat-card,.prov-card,.qcard,.modal,.btn,inpu
 <div class="sidebar" id="sidebar">
   <div class="sidebar-brand" style="display:flex;align-items:center;gap:12px">
     <div class="logo" style="background:transparent;color:var(--acc);width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 48 48" width="30" height="30" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:var(--acc);display:block"><path d="M22 8 L8 24 L22 40 Z" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M26 8 L40 24 L26 40 Z" fill="currentColor" opacity="0.9"/><circle cx="24" cy="24" r="2.6" fill="var(--bg)" stroke="currentColor" stroke-width="2"/></svg></div>
-    <div style="display:flex;flex-direction:column;justify-content:center"><div class="title" style="font-size:16px;font-weight:800;line-height:1.2">KiRouter</div><div class="sub" id="sbVersion" style="font-size:11px;color:var(--mut);margin-top:2px;line-height:1.2">v1.0.1</div></div>
+    <div style="display:flex;flex-direction:column;justify-content:center"><div class="title" style="font-size:16px;font-weight:800;line-height:1.2">KiRouter</div><div class="sub" id="sbVersion" style="font-size:11px;color:var(--mut);margin-top:2px;line-height:1.2">v1.0.4</div></div>
   </div>
   <nav class="nav">
     <div class="nav-section">Dashboard</div>
@@ -957,6 +958,7 @@ body,.main,.sidebar,.topbar,.panel,.stat-card,.prov-card,.qcard,.modal,.btn,inpu
     <h1 id="pageTitle">Overview</h1>
     <span class="kbd-hint" onclick="openCmdK()" style="cursor:pointer" title="Command palette"><kbd>⌘</kbd><kbd>K</kbd></span>
     <span class="pill ok" id="statusPill"><span class="dot ok"></span> Online</span>
+    <span class="pill ok" id="liveBadge" role="status" aria-live="polite"><span class="dot ok"></span> Live</span>
     <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle theme (Cmd+Shift+L)"><span data-icon="moon" data-size="16"></span></button>
     <button class="btn sm" onclick="refreshAll()"><span data-icon="refresh" data-size="14" style="margin-right:4px"></span>Refresh</button>
   </div>
@@ -1155,6 +1157,50 @@ window.PROV_LOGOS = {
   // Fallback
   'custom':      { init:'C', color:'#6b7280', bg:'#6b728015' },
 };
+/* ============================================================
+ * P0 security helpers — contextual escaping for API-controlled data
+ * Residual risk: many static/trusted inline handlers remain (goPage,
+ * setUsageMetric, closeProvModal, etc.). Dynamic handler args that
+ * embed API/provider/account strings MUST use escJs/escAttr.
+ * ============================================================ */
+function escHtml(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+function escAttr(s){ return escHtml(s); }
+/**
+ * Escape an untrusted value embedded as a single-quoted JS string inside a
+ * double-quoted HTML event attribute. Both contexts matter: escaping only the
+ * JS quote still lets a double quote terminate the HTML attribute first.
+ */
+function escJs(s){
+  var js = String(s == null ? '' : s)
+    .replace(/\\/g,'\\\\')
+    .replace(/'/g,"\\'")
+    .replace(/\r/g,'\\r')
+    .replace(/\n/g,'\\n')
+    .replace(/\u2028/g,'\\u2028')
+    .replace(/\u2029/g,'\\u2029');
+  return js
+    .replace(/&/g,'&amp;')
+    .replace(/"/g,'&quot;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+}
+/** Escape for double-quoted HTML attribute values */
+function escDq(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;')
+    .replace(/"/g,'&quot;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+}
+
+
 window.getProviderLogo = function(id, size){
   size = size || 32;
   var meta = window.PROV_LOGOS[id];
@@ -1162,24 +1208,23 @@ window.getProviderLogo = function(id, size){
   var isDark = document.documentElement.getAttribute('data-theme') !== 'light';
   var bg = meta.bg || '#6b728015';
   var fg = (isDark && meta.color_light) ? meta.color_light : (meta.color || '#6b7280');
-  var fallbackText = meta.init || (id||'?').slice(0,2).toUpperCase();
-  // Escape single-quotes for inline onerror handler
-  var esc = function(s){ return String(s).replace(/'/g, '&#39;'); };
-  // If real PNG logo exists, render <img> with onerror → text fallback
+  var fallbackText = String(meta.init || (id||'?').slice(0,2).toUpperCase()).replace(/[\r\n\u2028\u2029]/g,' ');
+  // If real PNG logo exists, render <img> with onerror → text fallback (escaped)
   if(meta.file){
-    var src = '/providers/' + meta.file;
+    // meta.file is from static PROV_LOGOS map only
+    var src = '/providers/' + String(meta.file).replace(/[^a-zA-Z0-9._-]/g,'');
     var onErr = "this.style.display='none';"
-      + "this.parentElement.innerHTML='"+esc(fallbackText)+"';"
-      + "this.parentElement.style.color='"+esc(fg)+"';"
+      + "this.parentElement.textContent='"+escJs(fallbackText)+"';"
+      + "this.parentElement.style.color='"+escJs(fg)+"';"
       + "this.parentElement.style.fontWeight='700';"
       + "this.parentElement.style.fontSize='"+Math.round(size*0.42)+"px';"
       + "this.parentElement.style.letterSpacing='-0.5px';";
-    return '<div class="prov-brand-logo" style="width:'+size+'px;height:'+size+'px;border-radius:8px;background:'+bg+';display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">'
-      + '<img src="'+src+'" alt="'+id+'" style="width:'+Math.round(size*0.72)+'px;height:'+Math.round(size*0.72)+'px;object-fit:contain" onerror="'+onErr+'"/>'
+    return '<div class="prov-brand-logo" style="width:'+size+'px;height:'+size+'px;border-radius:8px;background:'+escAttr(bg)+';display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">'
+      + '<img src="'+escAttr(src)+'" alt="'+escAttr(id)+'" style="width:'+Math.round(size*0.72)+'px;height:'+Math.round(size*0.72)+'px;object-fit:contain" onerror="'+onErr+'"/>'
       + '</div>';
   }
   // Pure text badge (custom / unknown providers)
-  return '<div class="prov-brand-logo" style="width:'+size+'px;height:'+size+'px;border-radius:8px;background:'+bg+';color:'+fg+';display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:'+Math.round(size*0.42)+'px;letter-spacing:-0.5px">'+fallbackText+'</div>';
+  return '<div class="prov-brand-logo" style="width:'+size+'px;height:'+size+'px;border-radius:8px;background:'+escAttr(bg)+';color:'+escAttr(fg)+';display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;font-size:'+Math.round(size*0.42)+'px;letter-spacing:-0.5px">'+escHtml(fallbackText)+'</div>';
 };
 // ============ End Provider Logos ============
 
@@ -1220,28 +1265,102 @@ if(document.readyState !== 'loading'){
 
 
 
-let KEY = localStorage.getItem('kigw_key') || '';
+// Master key is NEVER persisted (no localStorage / no JS-readable cookie).
+// Held in memory only while establishing POST /admin/session, then cleared.
+// Subsequent admin calls rely on HttpOnly session cookie + credentials:same-origin.
+let KEY = '';
+let SESSION_OK = false;
+let CSRF_TOKEN = '';
 let SUM = null, ACCS = null, EGRESS = null, RECENT_REQ = null;
 let CUR_PAGE = 'overview', CUR_TAB = 'all', SEARCH = '';
 
+// Purge any legacy master-key persistence from older dashboard builds
+try { localStorage.removeItem('kigw_key'); } catch(e){}
+try {
+  if(/(?:^|;\s*)kigw_key=/.test(document.cookie||'')){
+    document.cookie = 'kigw_key=;path=/;max-age=0;SameSite=Strict';
+  }
+} catch(e){}
+
 const $ = s => document.querySelector(s);
-const hdr = () => ({'Authorization':'Bearer '+KEY,'Content-Type':'application/json'});
+function readCookie(name){
+  var prefix = encodeURIComponent(name) + '=';
+  var parts = String(document.cookie || '').split(';');
+  for(var i=0;i<parts.length;i++){
+    var item = parts[i].trim();
+    if(item.indexOf(prefix)===0){
+      try { return decodeURIComponent(item.slice(prefix.length)); }
+      catch(e) { return item.slice(prefix.length); }
+    }
+  }
+  return '';
+}
+const hdr = () => {
+  var h = {'Content-Type':'application/json'};
+  // Authorization only while bootstrapping session with master key
+  if(KEY) h['Authorization'] = 'Bearer ' + KEY;
+  return h;
+};
+/** Same-origin admin fetch — cookie session plus CSRF on every mutating request. */
+function adminFetch(url, init){
+  init = init ? Object.assign({}, init) : {};
+  init.credentials = 'same-origin';
+  var base = hdr();
+  var method = String(init.method || 'GET').toUpperCase();
+  if(method!=='GET' && method!=='HEAD' && method!=='OPTIONS' && !KEY){
+    var csrf = CSRF_TOKEN || readCookie('kigw_csrf');
+    if(csrf) base['X-CSRF-Token'] = csrf;
+  }
+  init.headers = Object.assign({}, base, init.headers || {});
+  return fetch(url, init).then(function(response){
+    if(response.status===401 && !KEY){
+      SESSION_OK = false;
+      CSRF_TOKEN = '';
+      if(SSE_HANDLE){ try { SSE_HANDLE.close(); } catch(e){} SSE_HANDLE = null; }
+      clearTimeout(SSE_RECONNECT_TIMEOUT); SSE_RECONNECT_TIMEOUT = null;
+    }
+    return response;
+  });
+}
 
 async function doLogin(){
-  KEY = document.getElementById('keyInput').value.trim();
+  var input = document.getElementById('keyInput');
+  KEY = (input && input.value || '').trim();
   if(!KEY) return;
   try{
-    const r = await fetch('/admin/summary',{headers:hdr()});
+    const r = await adminFetch('/admin/session', {method:'POST', headers: hdr()});
+    var sessionBody = null;
+    try { sessionBody = await r.json(); } catch(e){}
+    // Drop master key from JS memory immediately after session attempt
+    KEY = '';
+    if(input) input.value = '';
     if(r.ok){
-      localStorage.setItem('kigw_key',KEY);
-      document.cookie='kigw_key='+KEY+';path=/;max-age=86400;SameSite=Strict';
+      CSRF_TOKEN = String(sessionBody && sessionBody.csrfToken || readCookie('kigw_csrf') || '');
+      SESSION_OK = true;
       document.getElementById('loginScreen').classList.add('hidden');
       document.getElementById('app').classList.remove('hidden');
       await init();
     } else {
       document.getElementById('loginErr').textContent = 'Key salah atau gateway error.';
     }
-  }catch(e){ document.getElementById('loginErr').textContent = 'Error: '+e.message; }
+  }catch(e){
+    KEY = '';
+    document.getElementById('loginErr').textContent = 'Error: '+e.message;
+  }
+}
+
+async function doLogout(){
+  try {
+    await adminFetch('/admin/logout', {method:'POST'});
+  } catch(e){ toast('Server logout failed; clearing this browser session', 'warn'); }
+  KEY = '';
+  CSRF_TOKEN = '';
+  SESSION_OK = false;
+  try { localStorage.removeItem('kigw_key'); } catch(e){}
+  try { document.cookie='kigw_key=;path=/;max-age=0;SameSite=Strict'; } catch(e){}
+  if(SSE_HANDLE){ try { SSE_HANDLE.close(); } catch(e){} SSE_HANDLE = null; }
+  clearTimeout(SSE_RECONNECT_TIMEOUT);
+  location.reload();
 }
 
 async function init(){
@@ -1249,8 +1368,8 @@ async function init(){
     const h = await fetch('/health').then(r=>r.json());
     // sbVersion removed — footer cleaned
     // sidebar foot removed per user request
-    await refreshAll();
-    setInterval(refreshAll, 30000);
+    await refreshAll({force:true});
+    setInterval(function(){ refreshAll({auto:true}); }, 30000);
     // Real-time stats via SSE — auto-reconnect with backoff on drop
     startSSE();
   }catch(e){ console.error(e); }
@@ -1264,12 +1383,15 @@ var SSE_HANDLE = null;
 var SSE_RECONNECT_TIMEOUT = null;
 var SSE_LAST_STATS = null;
 function startSSE(){
+  if(!SESSION_OK) return;
   if(SSE_HANDLE) { try { SSE_HANDLE.close(); } catch(e){} }
   clearTimeout(SSE_RECONNECT_TIMEOUT);
-  // EventSource doesn't support custom headers, so pass key via query string
-  var url = '/admin/events?key=' + encodeURIComponent(KEY);
+  SSE_RECONNECT_TIMEOUT = null;
+  // Cookie session only — never put master key in EventSource URL
+  var url = '/admin/events';
   try {
-    SSE_HANDLE = new EventSource(url);
+    // withCredentials so SameSite session cookie is sent on same-origin SSE
+    SSE_HANDLE = new EventSource(url, { withCredentials: true });
     SSE_HANDLE.addEventListener('stats', function(e){
       try {
         var data = JSON.parse(e.data);
@@ -1285,8 +1407,8 @@ function startSSE(){
     SSE_HANDLE.onerror = function(){
       try { SSE_HANDLE.close(); } catch(e){}
       SSE_HANDLE = null;
-      // Reconnect with 3s backoff
-      SSE_RECONNECT_TIMEOUT = setTimeout(startSSE, 3000);
+      // Reconnect only while the dashboard session remains valid.
+      if(SESSION_OK) SSE_RECONNECT_TIMEOUT = setTimeout(startSSE, 3000);
       var live = document.getElementById('liveBadge');
       if(live){ live.innerHTML = '<span class="dot err"></span> Reconnecting…'; }
     };
@@ -1299,7 +1421,7 @@ function startSSE(){
 async function runDeepHealth(){
   var toastEl = toast('Running deep health check…', 'info', 8000);
   try {
-    var r = await fetch('/admin/health-deep', {headers: hdr()}).then(function(r){return r.json();});
+    var r = await adminFetch('/admin/health-deep', {headers: hdr()}).then(function(r){return r.json();});
     if(toastEl) toastEl.remove();
     if(!r.results){ toast('Health check failed: '+(r.error||'unknown'), 'error'); return; }
     var okCount = r.results.filter(function(x){return x.ok===true;}).length;
@@ -1309,11 +1431,11 @@ async function runDeepHealth(){
       var symbol = x.status==='disabled' ? '○' : (x.ok ? '●' : '×');
       var col = x.status==='disabled' ? 'var(--mut2)' : (x.ok ? 'var(--ok)' : 'var(--err)');
       return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bd)">'
-        + '<span><span style="color:'+col+'">'+symbol+'</span> <b>'+x.prefix+'</b></span>'
+        + '<span><span style="color:'+col+'">'+symbol+'</span> <b>'+escHtml(x.prefix)+'</b></span>'
         + '<span style="color:var(--mut);font-size:11px">'
         + (x.status==='disabled' ? 'disabled'
-          : (x.error ? 'error: '+x.error
-          : 'HTTP '+x.status+' · '+x.latencyMs+'ms'))
+          : (x.error ? 'error: '+escHtml(x.error)
+          : 'HTTP '+escHtml(x.status)+' · '+escHtml(x.latencyMs)+'ms'))
         + '</span></div>';
     }).join('');
     var kind = failCount ? 'warn' : 'success';
@@ -1325,15 +1447,16 @@ async function runDeepHealth(){
     back.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease-out';
     back.innerHTML = '<div class="modal" style="width:min(480px,100%)">'
       + '<div class="modal-head"><h3>Deep Health Check</h3>'
-      + '<button class="btn sm ghost" onclick="this.closest(\'.modal-back\').remove()" aria-label="Close">✕</button></div>'
+      + '<button class="btn sm ghost" onclick="closeAccessibleModal(this.closest(\'.modal-back\'))" aria-label="Close">✕</button></div>'
       + '<div class="modal-body">'
       + '<div style="font-size:11px;color:var(--mut2);margin-bottom:8px">Checked at '+new Date(r.checkedAt).toLocaleTimeString('en-US',{hour12:false})+'</div>'
       + lines
       + '</div>'
-      + '<div class="modal-foot"><button class="btn primary" onclick="this.closest(\'.modal-back\').remove()">Close</button></div>'
+      + '<div class="modal-foot"><button class="btn primary" onclick="closeAccessibleModal(this.closest(\'.modal-back\'))">Close</button></div>'
       + '</div>';
     document.body.appendChild(back);
-    back.addEventListener('click', function(e){ if(e.target===back) back.remove(); });
+    activateAccessibleModal(back, 'Deep Health Check');
+    back.addEventListener('click', function(e){ if(e.target===back) closeAccessibleModal(back); });
   } catch(e){
     if(toastEl) toastEl.remove();
     toast('Health check error: '+e.message, 'error');
@@ -1341,22 +1464,72 @@ async function runDeepHealth(){
 }
 
 async function loadEgress(){
-  const r = await fetch('/admin/egress',{headers:hdr()}).then(r=>r.json());
+  const r = await adminFetch('/admin/egress',{headers:hdr()}).then(r=>r.json());
   EGRESS = r.items||[];
 }
 
-async function refreshAll(){
+var REFRESH_IN_FLIGHT = false;
+function dashboardIsEditing(){
+  if(document.querySelector('.modal-back, .cmdk-back')) return true;
+  var el = document.activeElement;
+  if(!el) return false;
+  var tag = String(el.tagName||'').toLowerCase();
+  return tag==='input' || tag==='textarea' || tag==='select' || !!el.isContentEditable;
+}
+var MODAL_LAST_FOCUS = null;
+function closeAccessibleModal(back){
+  if(!back) return;
+  back.remove();
+  if(MODAL_LAST_FOCUS && typeof MODAL_LAST_FOCUS.focus==='function') MODAL_LAST_FOCUS.focus();
+  MODAL_LAST_FOCUS = null;
+}
+function activateAccessibleModal(back, label){
+  if(!back) return;
+  MODAL_LAST_FOCUS = document.activeElement;
+  var modal = back.querySelector('.modal');
+  if(modal){ modal.setAttribute('role','dialog'); modal.setAttribute('aria-modal','true'); if(label) modal.setAttribute('aria-label',label); modal.setAttribute('tabindex','-1'); }
+  var focusable = back.querySelector('input,select,textarea,button,[href],[tabindex]:not([tabindex="-1"])');
+  setTimeout(function(){ (focusable||modal||back).focus(); },0);
+  back.addEventListener('keydown',function(ev){
+    if(ev.key==='Escape'){ ev.preventDefault(); closeAccessibleModal(back); return; }
+    if(ev.key!=='Tab') return;
+    var items=Array.from(back.querySelectorAll('input,select,textarea,button,[href],[tabindex]:not([tabindex="-1"])')).filter(function(x){return !x.disabled && x.offsetParent!==null;});
+    if(!items.length){ ev.preventDefault(); return; }
+    var first=items[0], last=items[items.length-1];
+    if(ev.shiftKey && document.activeElement===first){ ev.preventDefault(); last.focus(); }
+    else if(!ev.shiftKey && document.activeElement===last){ ev.preventDefault(); first.focus(); }
+  });
+}
+async function refreshAll(opts){
+  opts = opts || {};
+  if(REFRESH_IN_FLIGHT) return;
+  if(opts.auto && dashboardIsEditing()) return;
+  REFRESH_IN_FLIGHT = true;
   try{
-    const [s,a] = await Promise.all([
-      fetch('/admin/summary',{headers:hdr()}).then(r=>r.json()),
-      fetch('/admin/accounts',{headers:hdr()}).then(r=>r.json())
+    const [summaryRes, accountsRes] = await Promise.all([
+      adminFetch('/admin/summary',{headers:hdr()}),
+      adminFetch('/admin/accounts',{headers:hdr()})
     ]);
+    if(summaryRes.status===401 || accountsRes.status===401){
+      SESSION_OK = false;
+      CSRF_TOKEN = '';
+      if(SSE_HANDLE){ try { SSE_HANDLE.close(); } catch(e){} SSE_HANDLE = null; }
+      clearTimeout(SSE_RECONNECT_TIMEOUT); SSE_RECONNECT_TIMEOUT = null;
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('loginErr').textContent = 'Session berakhir. Masukkan gateway key lagi.';
+      return;
+    }
+    if(!summaryRes.ok || !accountsRes.ok) throw new Error('Admin refresh failed');
+    const [s,a] = await Promise.all([summaryRes.json(), accountsRes.json()]);
     SUM = s; ACCS = a.items || [];
     if(CUR_PAGE==='egress'){ await loadEgress(); }
     renderPage();
   }catch(e){
     const p=document.getElementById('statusPill');
     if(p){p.className='pill err';p.innerHTML='<span class="dot err"></span> Error';}
+  }finally{
+    REFRESH_IN_FLIGHT = false;
   }
 }
 
@@ -1367,72 +1540,6 @@ function updateLastUpdated(){
   el.textContent = 'Updated ' + now.toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 setInterval(updateLastUpdated, 1000);
-
-// Command Palette
-var cmdkItems = [
-  {icon:'📊', label:'Go to Overview', hint:'Dashboard', action:function(){goPage('overview');}},
-  {icon:'📦', label:'Go to Models', hint:'Dashboard', action:function(){goPage('models');}},
-  {icon:'🔌', label:'Go to Providers', hint:'Dashboard', action:function(){goPage('providers');}},
-  {icon:'📋', label:'Go to Accounts', hint:'Dashboard', action:function(){goPage('accounts');}},
-  {icon:'🔋', label:'Go to Quota Tracker', hint:'Dashboard', action:function(){goPage('quota');}},
-  {icon:'📈', label:'Go to Usage', hint:'Dashboard', action:function(){goPage('usage');}},
-  {icon:'💬', label:'Go to Test Chat', hint:'Tools', action:function(){goPage('chat');}},
-  {icon:'🔄', label:'Go to Convert', hint:'Tools', action:function(){goPage('convert');}},
-  {icon:'🌐', label:'Go to Proxies', hint:'System', action:function(){goPage('egress');}},
-  {icon:'🔑', label:'Go to API Keys', hint:'System', action:function(){goPage('keys');}},
-  {icon:'💾', label:'Go to Backup', hint:'System', action:function(){goPage('backup');}},
-  {icon:'➕', label:'Add Provider', hint:'Action', action:function(){goPage('providers');setTimeout(function(){openProviderAdd('custom')},100);}},
-  {icon:'🧪', label:'Test All Providers', hint:'Action', action:function(){testAllProviders();}},
-  {icon:'🔄', label:'Refresh Data', hint:'Action', action:function(){refreshAll();toast('Refreshed','success');}},
-];
-var cmdkSelected = 0;
-
-function openCmdk(){
-  document.getElementById('cmdkOverlay').classList.add('open');
-  document.getElementById('cmdkInput').value = '';
-  document.getElementById('cmdkInput').focus();
-  filterCmdk('');
-}
-function closeCmdk(){
-  document.getElementById('cmdkOverlay').classList.remove('open');
-}
-function filterCmdk(q){
-  var items = cmdkItems.filter(function(i){
-    return i.label.toLowerCase().indexOf(q.toLowerCase()) >= 0;
-  });
-  cmdkSelected = 0;
-  renderCmdk(items);
-}
-function renderCmdk(items){
-  var html = items.map(function(i, idx){
-    return '<div class="cmdk-item'+(idx===cmdkSelected?' selected':'')+'" onclick="runCmdk('+idx+')" onmouseover="cmdkSelected='+idx+';renderCmdk('+JSON.stringify(items)+')">'
-      +'<span class="icon">'+i.icon+'</span>'
-      +'<span class="label">'+i.label+'</span>'
-      +'<span class="hint">'+i.hint+'</span>'
-      +'</div>';
-  }).join('');
-  document.getElementById('cmdkResults').innerHTML = html;
-  window._cmdkItems = items;
-}
-function runCmdk(idx){
-  var item = window._cmdkItems[idx];
-  if(item){ closeCmdk(); item.action(); }
-}
-function handleCmdkKey(e){
-  var items = window._cmdkItems || [];
-  if(e.key === 'Escape'){ closeCmdk(); }
-  else if(e.key === 'ArrowDown'){ e.preventDefault(); cmdkSelected = Math.min(cmdkSelected+1, items.length-1); renderCmdk(items); }
-  else if(e.key === 'ArrowUp'){ e.preventDefault(); cmdkSelected = Math.max(cmdkSelected-1, 0); renderCmdk(items); }
-  else if(e.key === 'Enter'){ e.preventDefault(); runCmdk(cmdkSelected); }
-}
-
-// Global keyboard shortcut
-document.addEventListener('keydown', function(e){
-  if((e.metaKey || e.ctrlKey) && e.key === 'k'){
-    e.preventDefault();
-    openCmdk();
-  }
-});
 
 // Export CSV utility
 function exportCSV(filename, headers, rows){
@@ -1507,13 +1614,14 @@ function emptyState(opts){
   var iconHtml = (opts.icon && typeof icon === 'function')
     ? '<div class="empty-state-icon">'+icon(opts.icon, 28)+'</div>'
     : '';
+  // onclick here is static trusted code from call sites (not API data)
   var actionHtml = opts.action
-    ? '<button class="btn primary sm" style="margin-top:14px" onclick="'+opts.action.onclick+'">'+opts.action.label+'</button>'
+    ? '<button class="btn primary sm" style="margin-top:14px" onclick="'+String(opts.action.onclick||'')+'">'+escHtml(opts.action.label)+'</button>'
     : '';
   return '<div class="empty-state">'
     + iconHtml
-    + '<div class="empty-state-title">'+(opts.title||'No data')+'</div>'
-    + (opts.hint ? '<div class="empty-state-hint">'+opts.hint+'</div>' : '')
+    + '<div class="empty-state-title">'+escHtml(opts.title||'No data')+'</div>'
+    + (opts.hint ? '<div class="empty-state-hint">'+escHtml(opts.hint)+'</div>' : '')
     + actionHtml
     + '</div>';
 }
@@ -1603,7 +1711,7 @@ var OVERVIEW_STATS = null;   // { total, byProvider, series (24h buckets) }
 var OVERVIEW_PREV_HOUR = null; // 1h ago total for trend delta
 async function loadOverviewStats(){
   try {
-    var r24 = await fetch('/admin/stats?range=24h', {headers: hdr()}).then(function(r){return r.json();});
+    var r24 = await adminFetch('/admin/stats?range=24h', {headers: hdr()}).then(function(r){return r.json();});
     OVERVIEW_STATS = r24;
     // Fetch a 2h window and split into current-hour vs previous-hour for trend deltas
     var now = Date.now();
@@ -1718,9 +1826,9 @@ function renderOverview(){
       + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
       + window.getProviderLogo(p.prefix, 40)
       + '<div class="prov-meta" style="flex:1;min-width:0">'
-      + '<div class="prov-name">'+(p.name||p.prefix)+'</div>'
+      + '<div class="prov-name">'+escHtml(p.name||p.prefix)+'</div>'
       + '<div class="prov-status" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span class="sdot '+(on?'ok':'err')+'"></span>'
-      + '<b>'+p.prefix+'</b> · '+(p.type||'openai')
+      + '<b>'+escHtml(p.prefix)+'</b> · '+escHtml(p.type||'openai')
       + '</div></div>'
       + '<div class="prov-actions"><span class="badge '+badge+'">'+(on?'ON':'OFF')+'</span></div>'
       + '</div>'
@@ -1769,9 +1877,9 @@ function renderOverview(){
     });
   }
   var rows = modelItems.slice(0,24).map(function(m){
-    return '<div class="model-item"><div class="mid">'+m.id+'</div><div class="meta">'
-      + (m.provider||'?')
-      + (m.label && m.label!==m.id ? (' · '+m.label) : '')
+    return '<div class="model-item"><div class="mid">'+escHtml(m.id)+'</div><div class="meta">'
+      + escHtml(m.provider||'?')
+      + (m.label && m.label!==m.id ? (' · '+escHtml(m.label)) : '')
       + (m.accounts!=null ? (' · '+m.accounts+' akun') : '')
       + ' · '+(m.enabled?'enabled':'disabled')
       + '</div></div>';
@@ -1792,13 +1900,13 @@ function renderOverview(){
   }
   var recentRows = recent.slice(0,8).map(function(x){
     var rawPrev = (x.preview||'');
-    var prev = smartPreview(rawPrev).replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    var titleFull = String(rawPrev).replace(/"/g,'&quot;');
+    var prev = escHtml(smartPreview(rawPrev));
+    var titleFull = escAttr(rawPrev);
     return '<tr>'
       + '<td style="color:var(--mut2);font-size:11px;white-space:nowrap">'+timeAgo(x.ts)+'</td>'
-      + '<td><span class="badge active">'+(x.provider||'?')+'</span></td>'
-      + '<td style="font-weight:600;font-size:12px">'+(x.model||'—')+'</td>'
-      + '<td>'+(x.ok?'<span class="badge active">'+(x.status||'ok')+'</span>':'<span class="badge error">'+(x.status||'err')+'</span>')+'</td>'
+      + '<td><span class="badge active">'+escHtml(x.provider||'?')+'</span></td>'
+      + '<td style="font-weight:600;font-size:12px">'+escHtml(x.model||'—')+'</td>'
+      + '<td>'+(x.ok?'<span class="badge active">'+escHtml(x.status||'ok')+'</span>':'<span class="badge error">'+escHtml(x.status||'err')+'</span>')+'</td>'
       + '<td>'+fmtMs(x.latencyMs)+'</td>'
       + '<td>'+fmtTok(x.tokens||0)+'</td>'
       + '<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mut);font-size:11px" title="'+titleFull+'">'+(prev||'—')+'</td>'
@@ -1993,7 +2101,7 @@ function renderProviderChips(active, counts, onClickFn){
   return providerChipMeta().map(function(c){
     var n = (c.id==='all') ? (counts.all||0) : (counts[c.id]||0);
     var lab = (c.icon? (c.icon+' ') : '') + c.label;
-    return '<div class="pchip '+(active===c.id?'active':'')+'" onclick="'+onClickFn+'(\''+c.id+'\')">'+lab
+    return '<div class="pchip '+(active===c.id?'active':'')+'" onclick="'+onClickFn+'(\''+escJs(c.id)+'\')">'+escHtml(lab)
       +' <span class="n">'+n+'</span></div>';
   }).join('');
 }
@@ -2008,7 +2116,7 @@ function renderHealthChips(active, hc, onClickFn){
   ];
   return items.map(function(c){
     var extra = (c.id==='all') ? '' : (' <span class="n">'+(c.n||0)+'</span>');
-    return '<div class="hchip '+(active===c.id?'active':'')+'" onclick="'+onClickFn+'(\''+c.id+'\')">'+c.label+extra+'</div>';
+    return '<div class="hchip '+(active===c.id?'active':'')+'" onclick="'+onClickFn+'(\''+escJs(c.id)+'\')">'+escHtml(c.label)+extra+'</div>';
   }).join('');
 }
 
@@ -2019,7 +2127,7 @@ function renderProviderSelect(active, counts, onChangeFn){
     var n = (c.id==='all') ? (counts.all||0) : (counts[c.id]||0);
     var lab = (c.icon? (c.icon+' ') : '') + c.label + ' ('+n+')';
     var sel = active===c.id ? ' selected' : '';
-    return '<option value="'+c.id+'"'+sel+'>'+lab+'</option>';
+    return '<option value="'+escAttr(c.id)+'"'+sel+'>'+escHtml(lab)+'</option>';
   }).join('');
   return '<select class="prov-select" onchange="'+onChangeFn+'(this.value)" style="min-width:220px;font-weight:500;padding:8px 32px 8px 14px;font-size:13px;border-radius:10px">'+options+'</select>';
 }
@@ -2036,7 +2144,7 @@ function renderStatusSelect(active, hc, onChangeFn){
   var options = items.map(function(c){
     var lab = c.label + (c.n!=null ? ' ('+(c.n||0)+')' : '');
     var sel = active===c.id ? ' selected' : '';
-    return '<option value="'+c.id+'"'+sel+'>'+lab+'</option>';
+    return '<option value="'+escAttr(c.id)+'"'+sel+'>'+escHtml(lab)+'</option>';
   }).join('');
   return '<select class="prov-select" onchange="'+onChangeFn+'(this.value)" style="min-width:180px;font-weight:500;padding:8px 32px 8px 14px;font-size:13px;border-radius:10px">'+options+'</select>';
 }
@@ -2074,29 +2182,29 @@ function renderAccounts(){
       qd='<div style="font-size:11px;line-height:1.35">'
         +'<div>spent <b style="color:var(--fg)">'+spent.toFixed(4)+'</b> credit'
         +(lastC?(' · last '+lastC.toFixed(4)):'')+'</div>'
-        +'<div style="color:var(--mut)">key <b style="color:var(--fg)">'+(km.keyMasked||km.id||a.name)+'</b>'
+        +'<div style="color:var(--mut)">key <b style="color:var(--fg)">'+escHtml(km.keyMasked||km.id||a.name)+'</b>'
         +(a._keyIndex?(' · #'+a._keyIndex+'/'+a._keyTotal):'')
         +' · <span style="color:'+stColor+'">'+st+'</span></div>'
         +'</div>';
     } else if(!isBuild && a.quotaWindows && a.quotaWindows.length){
-      qd=a.quotaWindows.map(function(w){var rst=w.resetAt?' <span style="color:var(--mut2);font-size:10px">(reset '+timeUntil(w.resetAt)+')</span>':'';return '<span style="white-space:nowrap">'+w.mode+': <b>'+w.remaining+'/'+w.total+'</b>'+rst+'</span>';}).join('<br>');
+      qd=a.quotaWindows.map(function(w){var rst=w.resetAt?' <span style="color:var(--mut2);font-size:10px">(reset '+timeUntil(w.resetAt)+')</span>':'';return '<span style="white-space:nowrap">'+escHtml(w.mode)+': <b>'+fmtNum(w.remaining)+'/'+fmtNum(w.total)+'</b>'+rst+'</span>';}).join('<br>');
     } else if(a.quota && (a.quota.limit||a.quota.remaining!=null)){
       var pct=a.quota.usagePercent||0;
       var cls=qClass(100-pct);
       qd='<div><div class="qbar"><div class="fill '+cls+'" style="width:'+(100-pct)+'%"></div></div><span style="font-size:11px">'+fmtNum(a.quota.remaining||0)+'/'+fmtNum(a.quota.limit||0)+'</span></div>';
     }
-    return '<tr><td><input type="checkbox" class="acct-check" value="'+a.id+'" data-src="'+(a._source||'g2a')+'"></td>'
-      +'<td style="color:var(--mut);font-size:11px">'+a.id+'</td>'
-      +'<td><div style="font-weight:600">'+(a.email||a.name||a.id)+'</div>'
-      +(a._source==='gateway'?'<div style="font-size:10px;color:var(--mut2)">'+(a._providerMeta&&a._providerMeta.name?a._providerMeta.name:providerLabel(a.provider))+' · id '+(a.name||'')+'</div>':'')
-      +(a.lastError?'<div style="font-size:10px;color:var(--err)">'+String(a.lastError).slice(0,120)+'</div>':'')+'</td>'
-      +'<td><span class="badge '+providerBadgeClass(a.provider)+'">'+providerLabel(a.provider)+'</span></td>'
-      +'<td><span class="badge '+hb[0]+'">'+hb[1]+'</span></td>'
+    return '<tr><td><input type="checkbox" class="acct-check" value="'+escAttr(a.id)+'" data-src="'+escAttr(a._source||'g2a')+'"></td>'
+      +'<td style="color:var(--mut);font-size:11px">'+escHtml(a.id)+'</td>'
+      +'<td><div style="font-weight:600">'+escHtml(a.email||a.name||a.id)+'</div>'
+      +(a._source==='gateway'?'<div style="font-size:10px;color:var(--mut2)">'+escHtml(a._providerMeta&&a._providerMeta.name?a._providerMeta.name:providerLabel(a.provider))+' · id '+escHtml(a.name||'')+'</div>':'')
+      +(a.lastError?'<div style="font-size:10px;color:var(--err)">'+escHtml(String(a.lastError).slice(0,120))+'</div>':'')+'</td>'
+      +'<td><span class="badge '+escAttr(providerBadgeClass(a.provider))+'">'+escHtml(providerLabel(a.provider))+'</span></td>'
+      +'<td><span class="badge '+escAttr(hb[0])+'">'+escHtml(hb[1])+'</span></td>'
       +'<td>'+qd+'</td>'
       +'<td style="color:'+(a.failureCount>0?'var(--err)':'var(--mut2)')+'">'+(a.failureCount||0)+'</td>'
       +'<td style="color:var(--mut2);font-size:11px">'+(a._source==='gateway'
-          ? ('<button class="btn sm" onclick="testGatewayKey(\''+ (a._providerMeta&&a._providerMeta.prefix||a.provider)+'\',\''+(a._keyMeta&&a._keyMeta.id||a.name)+'\')">Test</button>')
-          : timeAgo(a.lastUsedAt))+'</td></tr>';
+          ? ('<button class="btn sm" onclick="testGatewayKey(\''+ escJs(a._providerMeta&&a._providerMeta.prefix||a.provider)+'\',\''+escJs(a._keyMeta&&a._keyMeta.id||a.name)+'\')">Test</button>')
+          : escHtml(timeAgo(a.lastUsedAt)))+'</td></tr>';
   }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:20px">No accounts match filter/search</td></tr>';
 
   var caret = window.__acctSearchCaret;
@@ -2105,7 +2213,7 @@ function renderAccounts(){
     '<div class="chipbar" style="gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">'
     +'<span class="clabel">Provider</span>'+renderProviderSelect(provActive, counts, 'setProvFilter')
     +'<span class="clabel" style="margin-left:8px">Status</span>'+renderStatusSelect(HFILTER, hc, 'setHFilter')
-    +'<input class="search-input" id="acctSearch" type="text" placeholder="Search email / id..." value="'+(SEARCH||'').replace(/"/g,'&quot;')+'" oninput="setSearch(this.value,this)" style="min-width:180px;margin-left:auto;flex:1">'
+    +'<input class="search-input" id="acctSearch" type="text" placeholder="Search email / id..." value="'+escAttr(SEARCH||'')+'" oninput="setSearch(this.value,this)" style="min-width:180px;margin-left:auto;flex:1">'
     +'<span style="font-size:12px;color:var(--mut);white-space:nowrap">Showing <b>'+items.length+'</b></span>'
     +'</div>'
     + '<div class="toolbar">'
@@ -2162,16 +2270,16 @@ async function acctDelete(){
   var results=[];
   try{
     if(sel.grok.length){
-      var r=await fetch('/admin/accounts/delete',{method:'POST',headers:hdr(),body:JSON.stringify({ids:sel.grok})}).then(function(r){return r.json()});
+      var r=await adminFetch('/admin/accounts/delete',{method:'POST',headers:hdr(),body:JSON.stringify({ids:sel.grok})}).then(function(r){return r.json()});
       results.push('Grok: deleted '+(r.deleted||0)+(r.failed?', fail '+r.failed:''));
     }
     if(sel.gw.length){
-      var r2=await fetch('/admin/providers/keys/bulk-delete',{method:'POST',headers:hdr(),body:JSON.stringify({items:sel.gw})}).then(function(r){return r.json()});
+      var r2=await adminFetch('/admin/providers/keys/bulk-delete',{method:'POST',headers:hdr(),body:JSON.stringify({items:sel.gw})}).then(function(r){return r.json()});
       results.push('Provider keys: deleted '+(r2.deleted||0)+(r2.failed?', fail '+r2.failed:''));
     }
     out.innerHTML='<span style="color:var(--ok)">'+results.join(' · ')+'</span>';
     setTimeout(refreshAll,1200);
-  }catch(e){out.innerHTML='<span style="color:var(--err)">'+e.message+'</span>';}
+  }catch(e){out.innerHTML='<span style="color:var(--err)">'+escHtml(e.message)+'</span>';}
 }
 async function acctRefreshToken(){
   var sel=acctSelectedByType();
@@ -2186,17 +2294,17 @@ async function acctRefreshToken(){
   var out=document.getElementById('acctActionResult');
   out.innerHTML='<span style="color:var(--acc)">Refreshing token '+sel.grok.length+'...</span>';
   try{
-    var r=await fetch('/admin/accounts/refresh-token',{method:'POST',headers:hdr(),body:JSON.stringify({ids:sel.grok})}).then(function(r){return r.json()});
+    var r=await adminFetch('/admin/accounts/refresh-token',{method:'POST',headers:hdr(),body:JSON.stringify({ids:sel.grok})}).then(function(r){return r.json()});
     out.innerHTML='<span style="color:var(--ok)">Refreshed '+r.refreshed+(r.failed?', failed '+r.failed:'')+(sel.gw.length?' · '+sel.gw.length+' provider keys skipped (no refresh needed)':'')+'</span>';
     setTimeout(refreshAll,1200);
-  }catch(e){out.innerHTML='<span style="color:var(--err)">'+e.message+'</span>';}
+  }catch(e){out.innerHTML='<span style="color:var(--err)">'+escHtml(e.message)+'</span>';}
 }
 async function acctPurgeBad(){
   var out=document.getElementById('acctActionResult');
   out.innerHTML='<span style="color:var(--acc)">Counting bad accounts...</span>';
   try{
-    var prev=await fetch('/admin/accounts/purge',{method:'POST',headers:hdr(),body:JSON.stringify({dryRun:true})}).then(function(r){return r.json();});
-    if(prev.error){out.innerHTML='<span style="color:var(--err)">Error: '+prev.error+'</span>';return;}
+    var prev=await adminFetch('/admin/accounts/purge',{method:'POST',headers:hdr(),body:JSON.stringify({dryRun:true})}).then(function(r){return r.json();});
+    if(prev.error){out.innerHTML='<span style="color:var(--err)">Error: '+escHtml(prev.error)+'</span>';return;}
     var total=prev.total||0;
     var b=prev.breakdown||{};
     var btn=document.getElementById('purgeBadBtn');
@@ -2214,15 +2322,15 @@ async function acctPurgeBad(){
       return;
     }
     out.innerHTML='<span style="color:var(--acc)">Purging '+total+' bad accounts...</span>';
-    var r=await fetch('/admin/accounts/purge',{method:'POST',headers:hdr(),body:JSON.stringify({dryRun:false})}).then(function(r){return r.json();});
+    var r=await adminFetch('/admin/accounts/purge',{method:'POST',headers:hdr(),body:JSON.stringify({dryRun:false})}).then(function(r){return r.json();});
     if(r.error){
-      out.innerHTML='<span style="color:var(--err)">Error: '+r.error+'</span>';
+      out.innerHTML='<span style="color:var(--err)">Error: '+escHtml(r.error)+'</span>';
     } else {
       out.innerHTML='<span style="color:var(--ok)">Purged: '+r.purged+' deleted, '+r.failed+' failed ('+r.total+' bad)</span>';
       await refreshAll();
     }
   }catch(e){
-    out.innerHTML='<span style="color:var(--err)">'+e.message+'</span>';
+    out.innerHTML='<span style="color:var(--err)">'+escHtml(e.message)+'</span>';
   }
 }
 async function acctBulkEnable(enabled){
@@ -2235,13 +2343,14 @@ async function acctBulkEnable(enabled){
     }
     return;
   }
+  if(!enabled && !(await askConfirm({message:'Disable '+sel.gw.length+' selected provider key(s)?', danger:true, confirmText:'Disable'}))) return;
   var out=document.getElementById('acctActionResult');
   out.innerHTML='<span style="color:var(--acc)">'+(enabled?'Enabling':'Disabling')+' '+sel.gw.length+' keys...</span>';
   try{
-    var r=await fetch('/admin/providers/keys/bulk-toggle',{method:'POST',headers:hdr(),body:JSON.stringify({items:sel.gw,enabled:enabled})}).then(function(r){return r.json()});
+    var r=await adminFetch('/admin/providers/keys/bulk-toggle',{method:'POST',headers:hdr(),body:JSON.stringify({items:sel.gw,enabled:enabled})}).then(function(r){return r.json()});
     out.innerHTML='<span style="color:var(--ok)">'+(enabled?'Enabled':'Disabled')+' '+(r.updated||0)+(r.failed?', failed '+r.failed:'')+(sel.grok.length?' · '+sel.grok.length+' Grok accounts skipped':'')+'</span>';
     setTimeout(refreshAll,1200);
-  }catch(e){out.innerHTML='<span style="color:var(--err)">'+e.message+'</span>';}
+  }catch(e){out.innerHTML='<span style="color:var(--err)">'+escHtml(e.message)+'</span>';}
 }
 async function acctBulkReset(){
   var sel=acctSelectedByType();
@@ -2253,13 +2362,14 @@ async function acctBulkReset(){
     }
     return;
   }
+  if(!(await askConfirm({message:'Reset usage/error statistics for '+sel.gw.length+' provider key(s)?', danger:true, confirmText:'Reset'}))) return;
   var out=document.getElementById('acctActionResult');
   out.innerHTML='<span style="color:var(--acc)">Resetting '+sel.gw.length+' keys...</span>';
   try{
-    var r=await fetch('/admin/providers/keys/bulk-reset',{method:'POST',headers:hdr(),body:JSON.stringify({items:sel.gw})}).then(function(r){return r.json()});
+    var r=await adminFetch('/admin/providers/keys/bulk-reset',{method:'POST',headers:hdr(),body:JSON.stringify({items:sel.gw})}).then(function(r){return r.json()});
     out.innerHTML='<span style="color:var(--ok)">Reset '+(r.reset||0)+(r.failed?', failed '+r.failed:'')+(sel.grok.length?' · '+sel.grok.length+' Grok accounts skipped':'')+'</span>';
     setTimeout(refreshAll,1200);
-  }catch(e){out.innerHTML='<span style="color:var(--err)">'+e.message+'</span>';}
+  }catch(e){out.innerHTML='<span style="color:var(--err)">'+escHtml(e.message)+'</span>';}
 }
 function setTab(t){ setProvFilter(t); }
 function setSearch(v, el){
@@ -2327,8 +2437,8 @@ function renderQuotaTracker(){
       var cls='qcard';
       if(st==='exhausted' || st==='error') cls+=' bad';
       return '<div class="'+cls+'">'
-        +'<div class="qtitle">'+(a.email||km.keyMasked||a.name)+'</div>'
-        +'<div class="qsub"><span class="badge active">'+providerLabel(a.provider)+'</span> · key <b>'+(km.id||a.name)+'</b>'
+        +'<div class="qtitle">'+escHtml(a.email||km.keyMasked||a.name)+'</div>'
+        +'<div class="qsub"><span class="badge active">'+escHtml(providerLabel(a.provider))+'</span> · key <b>'+escHtml(km.id||a.name)+'</b>'
         +(a._keyIndex?(' · #'+a._keyIndex+'/'+a._keyTotal):'')
         +' · '+st+'</div>'
         +'<div class="qbar-lg"><div class="fill '+(st==='exhausted'||st==='error'?'l':(st==='active'?'h':'m'))+'" style="width:'+(st==='unknown'?20:(st==='exhausted'?100:Math.min(100, Math.max(8, spent*20))))+'%;background:'+(st==='exhausted'||st==='error'?'var(--err)':(st==='active'?'var(--ok)':'var(--acc)'))+'"></div></div>'
@@ -2337,8 +2447,8 @@ function renderQuotaTracker(){
         +'<span style="color:var(--mut)">last '+lastC.toFixed(4)+' · req '+reqs+'</span>'
         +'</div>'
         +'<div style="font-size:11px;color:var(--mut2);margin-top:6px">No remaining-balance API · track spent from usage.credit</div>'
-        +'<div style="margin-top:10px"><button class="btn sm" onclick="goPage(\'providers\');setTimeout(function(){openProviderManage(\''+pfx+'\')},50)">Manage pool</button> '
-        +'<button class="btn sm" onclick="testGatewayKey(\''+pfx+'\',\''+(km.id||a.name)+'\')">Test</button></div>'
+        +'<div style="margin-top:10px"><button class="btn sm" onclick="goPage(\'providers\');setTimeout(function(){openProviderManage(\''+escJs(pfx)+'\')},50)">Manage pool</button> '
+        +'<button class="btn sm" onclick="testGatewayKey(\''+escJs(pfx)+'\',\''+escJs(km.id||a.name)+'\')">Test</button></div>'
         +'</div>';
     }
     var pct=quotaPct(a);
@@ -2347,7 +2457,7 @@ function renderQuotaTracker(){
       remain=fmtNum(a.quota.remaining||0); limit=fmtNum(a.quota.limit||0);
       detail=(a.quota.type||'')+' · '+(a.quota.status||'');
     } else if(a.quotaWindows && a.quotaWindows.length){
-      detail=a.quotaWindows.map(function(w){return w.mode+': '+w.remaining+'/'+w.total;}).join(' · ');
+      detail=a.quotaWindows.map(function(w){return escHtml(w.mode)+': '+fmtNum(w.remaining)+'/'+fmtNum(w.total);}).join(' · ');
       var tot=0,rem=0; a.quotaWindows.forEach(function(w){tot+=w.total||0;rem+=w.remaining||0;});
       remain=fmtNum(rem); limit=fmtNum(tot);
       if(tot>0) pct=((tot-rem)/tot)*100;
@@ -2358,8 +2468,8 @@ function renderQuotaTracker(){
     var fillCls=pct==null?'h':(pct>=95?'l':pct>=70?'m':'h');
     var width=pct==null?0:Math.max(0,Math.min(100,100-pct));
     return '<div class="'+cls+'">'
-      +'<div class="qtitle">'+(a.email||a.name||a.id)+'</div>'
-      +'<div class="qsub"><span class="badge '+providerBadgeClass(a.provider)+'">'+providerLabel(a.provider)+'</span> · '+acctHealth(a)+(detail?' · '+detail:'')+'</div>'
+      +'<div class="qtitle">'+escHtml(a.email||a.name||a.id)+'</div>'
+      +'<div class="qsub"><span class="badge '+escAttr(providerBadgeClass(a.provider))+'">'+escHtml(providerLabel(a.provider))+'</span> · '+escHtml(acctHealth(a))+(detail?' · '+escHtml(detail):'')+'</div>'
       +'<div class="qbar-lg"><div class="fill '+fillCls+'" style="width:'+width+'%"></div></div>'
       +'<div style="display:flex;justify-content:space-between;font-size:12px"><span>Left <b>'+remain+'</b></span><span style="color:var(--mut)">of '+limit+(pct!=null?(' · '+Math.round(pct)+'% used'):'')+'</span></div>'
       +'</div>';
@@ -2371,7 +2481,7 @@ function renderQuotaTracker(){
 
   document.getElementById('pageContent').innerHTML =
     '<div class="usage-head"><div class="title-block"><h2 style="display:flex;align-items:center;gap:8px">'+icon('quota',16)+' Quota Tracker</h2></div>'
-    +'<input class="prov-search" id="qSearchInput" placeholder="Search accounts / providers..." value="'+(QSEARCH||'').replace(/"/g,'&quot;')+'" oninput="setQSearch(this.value,this)">'
+    +'<input class="prov-search" id="qSearchInput" placeholder="Search accounts / providers..." value="'+escAttr(QSEARCH||'')+'" oninput="setQSearch(this.value,this)">'
     +'</div>'
     +'<div class="stats-grid">'
     +'<div class="stat-card"><div class="ic">'+icon('check',14)+'</div><div class="label">Healthy</div><div class="value">'+ok+'</div></div>'
@@ -2462,10 +2572,10 @@ async function loadRecentRequests(){
     if(RECENT_SEARCH) qsFiltered += '&q='+encodeURIComponent(RECENT_SEARCH);
 
     // Parallel fetch: unfiltered (small, for chips) + filtered (for display)
-    var promises = [ fetch(qsFiltered,{headers:hdr()}).then(function(r){return r.json();}) ];
+    var promises = [ adminFetch(qsFiltered,{headers:hdr()}).then(function(r){return r.json();}) ];
     // Only re-fetch unfiltered if we don't have it OR filter is 'all' (which IS unfiltered)
     if(RECENT_ALL_PROVIDERS===null || (RECENT_FILTER==='all' && !RECENT_SEARCH)){
-      promises.push(fetch('/admin/requests?limit=100',{headers:hdr()}).then(function(r){return r.json();}));
+      promises.push(adminFetch('/admin/requests?limit=100',{headers:hdr()}).then(function(r){return r.json();}));
     }
     var results = await Promise.all(promises);
     RECENT_REQ = results[0].items || [];
@@ -2494,9 +2604,9 @@ function setRecentSearch(v){
 }
 function fmtMs(n){ n=Number(n)||0; if(n<1000) return Math.round(n)+'ms'; return (n/1000).toFixed(2)+'s'; }
 function recentStatusBadge(ok, status){
-  if(ok) return '<span class="badge active">'+status+'</span>';
+  if(ok) return '<span class="badge active">'+escHtml(status)+'</span>';
   if(status==429) return '<span class="badge error">429</span>';
-  return '<span class="badge error">'+(status||'err')+'</span>';
+  return '<span class="badge error">'+escHtml(status||'err')+'</span>';
 }
 
 function renderUsage(skipReload){
@@ -2578,7 +2688,7 @@ function renderUsage(skipReload){
     var badge = tier==='web'?'web':(tier==='build'?'build':'active');
     return '<tr>'
       + '<td style="color:var(--mut2);font-size:11px">'+(i+1)+'</td>'
-      + '<td style="font-weight:700">'+m.model+'</td>'
+      + '<td style="font-weight:700">'+escHtml(m.model)+'</td>'
       + '<td><span class="badge '+badge+'">'+tier+'</span></td>'
       + '<td style="font-weight:600">'+fmtTok(m.tokens)+'</td>'
       + '<td style="min-width:120px"><div style="display:flex;align-items:center;gap:8px"><div class="share-bar"><div class="fill" style="width:'+Math.min(100,shareTok)+'%"></div></div><span style="font-size:11px;color:var(--mut)">'+shareTok+'%</span></div></td>'
@@ -2598,7 +2708,7 @@ function renderUsage(skipReload){
       + '<td style="color:var(--mut)">'+fmtTok(h.inputTokens||0)+'</td>'
       + '<td style="color:var(--mut)">'+fmtTok(h.outputTokens||0)+'</td>'
       + '<td>'+fmtCostTicks(h.billedCostUsdTicks||0)+'</td>'
-      + '<td style="font-size:11px;color:var(--mut2)">'+(topModel?(topModel.model+' · '+fmtTok(topModel.tokens)):'—')+'</td>'
+      + '<td style="font-size:11px;color:var(--mut2)">'+(topModel?(escHtml(topModel.model)+' · '+escHtml(fmtTok(topModel.tokens))):'—')+'</td>'
       + '</tr>';
   }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--mut);padding:16px">No hourly data</td></tr>';
 
@@ -2606,11 +2716,11 @@ function renderUsage(skipReload){
   var provCards = (SUM.providers||[]).map(function(p){
     return '<div class="usage-item" style="text-align:left">'
       + '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center">'
-      + '<div class="v" style="font-size:14px">'+(p.name||p.prefix)+'</div>'
+      + '<div class="v" style="font-size:14px">'+escHtml(p.name||p.prefix)+'</div>'
       + '<span class="badge '+(p.enabled===false?'disabled':'active')+'">'+(p.enabled===false?'off':'on')+'</span></div>'
       + '<div class="k" style="text-transform:none;margin-top:6px;line-height:1.4">'
-      + 'prefix <b style="color:var(--fg)">'+p.prefix+'</b><br>'
-      + (p.enabledKeyCount||0)+'/'+(p.keyCount||0)+' keys · '+(p.models?p.models.length:0)+' models · '+(p.type||'openai')
+      + 'prefix <b style="color:var(--fg)">'+escHtml(p.prefix)+'</b><br>'
+      + (p.enabledKeyCount||0)+'/'+(p.keyCount||0)+' keys · '+(p.models?p.models.length:0)+' models · '+escHtml(p.type||'openai')
       + '</div></div>';
   }).join('') || '<div style="color:var(--mut)">No providers</div>';
 
@@ -2638,24 +2748,25 @@ function renderUsage(skipReload){
       var n = p==='all' ? totalUnfiltered : (provCounts[p] || 0);
       var lab = (p==='all'?'All providers':p) + ' ('+n+')';
       var sel = (RECENT_FILTER||'all')===p ? ' selected' : '';
-      return '<option value="'+p+'"'+sel+'>'+lab+'</option>';
+      return '<option value="'+escAttr(p)+'"'+sel+'>'+escHtml(lab)+'</option>';
     }).join('');
     return '<select class="prov-select" onchange="setRecentFilter(this.value)" style="min-width:220px;font-weight:500;padding:8px 32px 8px 14px;font-size:13px;border-radius:10px">'+opts+'</select>';
   })();
   var recentRows = recent.map(function(x){
     var when = x.ts ? timeAgo(x.ts) : '—';
-    var prev = (x.preview||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    var rawPrev = String(x.preview||'');
+    var prev = escHtml(rawPrev);
     return '<tr>'
-      + '<td style="white-space:nowrap;color:var(--mut2);font-size:11px" title="'+(x.ts||'')+'">'+when+'</td>'
-      + '<td><span class="badge active">'+(x.provider||'?')+'</span></td>'
-      + '<td style="font-weight:600;font-size:12px">'+(x.model||'—')+'</td>'
+      + '<td style="white-space:nowrap;color:var(--mut2);font-size:11px" title="'+escAttr(x.ts||'')+'">'+when+'</td>'
+      + '<td><span class="badge active">'+escHtml(x.provider||'?')+'</span></td>'
+      + '<td style="font-weight:600;font-size:12px">'+escHtml(x.model||'—')+'</td>'
       + '<td>'+recentStatusBadge(!!x.ok, x.status)+'</td>'
       + '<td style="font-weight:600">'+fmtMs(x.latencyMs)+'</td>'
       + '<td>'+fmtTok(x.tokens||0)+'</td>'
       + '<td style="color:var(--mut);font-size:11px">in '+fmtTok(x.promptTokens||0)+' / out '+fmtTok(x.completionTokens||0)+'</td>'
       + '<td style="color:var(--mut2);font-size:11px">'+(x.credit!=null?Number(x.credit).toFixed(4):'—')+'</td>'
-      + '<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mut);font-size:11px" title="'+prev+'">'+(prev||'—')+'</td>'
-      + '<td style="color:var(--err);font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+(String(x.error||'').replace(/"/g,'&quot;'))+'">'+(x.error?String(x.error).slice(0,80):'')+'</td>'
+      + '<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mut);font-size:11px" title="'+escAttr(rawPrev)+'">'+(prev||'—')+'</td>'
+      + '<td style="color:var(--err);font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis" title="'+escAttr(x.error||'')+'">'+(x.error?escHtml(String(x.error).slice(0,80)):'')+'</td>'
       + '</tr>';
   }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--mut);padding:18px">No request lewat gateway. Coba Test Chat / API call dulu.</td></tr>';
 
@@ -2708,7 +2819,7 @@ document.getElementById('pageContent').innerHTML =
     + '</div>'
     + '</div><div class="panel-body" style="padding-top:12px">'
     + '<div class="chipbar"><span class="clabel">Provider</span>'+recentProvChips
-    + '<input class="search-input" style="max-width:220px;margin-left:auto" placeholder="Filter model/error/preview..." value="'+(RECENT_SEARCH||'').replace(/"/g,'&quot;')+'" oninput="setRecentSearch(this.value)">'
+    + '<input class="search-input" style="max-width:220px;margin-left:auto" placeholder="Filter model/error/preview..." value="'+escAttr(RECENT_SEARCH||'')+'" oninput="setRecentSearch(this.value)">'
     + '</div>'
     + '<div class="table-wrap" style="max-height:420px"><table><thead><tr>'
     + '<th>When</th><th>Provider</th><th>Model</th><th>Status</th><th>Latency</th><th>Tokens</th><th>In/Out</th><th>Credit</th><th>Preview</th><th>Error</th>'
@@ -2748,11 +2859,11 @@ function renderChatHistory(){
   var hist = loadChatHistory();
   if(!hist.length) return '<div style="padding:16px;color:var(--mut2);font-size:12px;text-align:center;border:1px dashed var(--bd);border-radius:8px">No chat history yet</div>';
   return hist.map(function(h, i){
-    var promptShort = String(h.prompt||'').slice(0, 60).replace(/</g,'&lt;');
-    var replyShort = String(h.reply||'').slice(0, 100).replace(/</g,'&lt;');
+    var promptShort = escHtml(String(h.prompt||'').slice(0, 60));
+    var replyShort = escHtml(String(h.reply||'').slice(0, 100));
     return '<div class="panel" style="margin-bottom:8px;padding:10px 12px;background:var(--card2)">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">'
-      + '<span class="badge active" style="font-size:10px">'+(h.model||'?')+'</span>'
+      + '<span class="badge active" style="font-size:10px">'+escHtml(h.model||'?')+'</span>'
       + '<span style="font-size:10px;color:var(--mut2);font-variant-numeric:tabular-nums">'+timeAgo(h.ts)+' · '+(h.tokens||0)+' tok</span>'
       + '</div>'
       + '<div style="font-size:12px;color:var(--fg);margin-bottom:4px"><b>Q:</b> '+promptShort+(h.prompt.length>60?'…':'')+'</div>'
@@ -2772,8 +2883,10 @@ function loadChatEntry(i){
   if(prompt) prompt.value = h.prompt || '';
   toast('Loaded from history', 'info');
 }
-function deleteChatEntry(i){
+async function deleteChatEntry(i){
   var hist = loadChatHistory();
+  if(!hist[i]) return;
+  if(!(await askConfirm({title:'Delete chat entry', message:'Delete this saved chat entry?', danger:true, confirmText:'Delete'}))) return;
   hist.splice(i, 1);
   saveChatHistory(hist);
   renderChat();
@@ -2828,7 +2941,7 @@ async function doChat(){
   var prompt = promptEl.value; var model = modelEl.value;
   out.classList.remove('empty');out.textContent='Loading...';meta.textContent='';btn.disabled=true;
   try{
-    var r=await fetch('/admin/testchat',{method:'POST',headers:hdr(),body:JSON.stringify({model:model,prompt:prompt})}).then(function(r){return r.json();});
+    var r=await adminFetch('/admin/testchat',{method:'POST',headers:hdr(),body:JSON.stringify({model:model,prompt:prompt})}).then(function(r){return r.json();});
     var reply = r.reply || JSON.stringify(r);
     out.textContent = reply;
     meta.textContent='Model: '+(r.model||'?')+(r.usage?' · Tokens: in '+fmtNum(r.usage.prompt_tokens)+' / out '+fmtNum(r.usage.completion_tokens):'');
@@ -2871,15 +2984,15 @@ function renderConvert(){
         : '<div class="table-wrap" style="max-height:400px"><table><thead><tr>'
           + '<th style="width:30px"><input type="checkbox" id="convCheckAll" onchange="convToggleAll(this)"></th>'
           + '<th>ID</th><th>Email/Name</th><th>Status</th><th>Last Used</th></tr></thead><tbody>'
-          + pending.map(function(a){return '<tr><td><input type="checkbox" class="conv-check" value="'+a.id+'"></td>'
-              +'<td style="color:var(--mut);font-size:11px">'+a.id+'</td>'
-              +'<td style="font-weight:600">'+(a.email||a.name)+'</td>'
-              +'<td><span class="badge '+(a.authStatus==='active'?'active':'error')+'">'+a.authStatus+'</span></td>'
+          + pending.map(function(a){return '<tr><td><input type="checkbox" class="conv-check" value="'+escAttr(a.id)+'"></td>'
+              +'<td style="color:var(--mut);font-size:11px">'+escHtml(a.id)+'</td>'
+              +'<td style="font-weight:600">'+escHtml(a.email||a.name)+'</td>'
+              +'<td><span class="badge '+(a.authStatus==='active'?'active':'error')+'">'+escHtml(a.authStatus)+'</span></td>'
               +'<td style="color:var(--mut2);font-size:11px">'+timeAgo(a.lastUsedAt)+'</td></tr>';}).join('')
           + '</tbody></table></div>')
     + '</div></div>'
     + (done.length? '<div class="panel"><div class="panel-head"><h2 style="display:flex;align-items:center;gap:8px">'+icon('check',16)+' Already Converted</h2><span class="count">'+done.length+'</span></div><div class="panel-body"><div class="table-wrap" style="max-height:260px"><table><thead><tr><th>ID</th><th>Email/Name</th><th>Build Linked</th></tr></thead><tbody>'
-        + done.map(function(a){return '<tr><td style="color:var(--mut);font-size:11px">'+a.id+'</td><td style="font-weight:600">'+(a.email||a.name)+'</td><td style="color:var(--ok);font-size:11px">→ '+(a.linkedAccountName||a.linkedAccountId)+'</td></tr>';}).join('')
+        + done.map(function(a){return '<tr><td style="color:var(--mut);font-size:11px">'+escHtml(a.id)+'</td><td style="font-weight:600">'+escHtml(a.email||a.name)+'</td><td style="color:var(--ok);font-size:11px">→ '+escHtml(a.linkedAccountName||a.linkedAccountId)+'</td></tr>';}).join('')
         + '</tbody></table></div></div></div>' : '');
 }
 function convToggleAll(cb){document.querySelectorAll('.conv-check').forEach(function(c){c.checked=cb.checked});}
@@ -2901,14 +3014,14 @@ async function runConvert(body, count){
   if(a1)a1.disabled=true;if(a2)a2.disabled=true;
   p.innerHTML='<div style="padding:12px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)"><span style="color:var(--acc)">Converting '+count+' account(s)… (please don\'t close this page)</span></div>';
   try{
-    var r=await fetch('/admin/convert',{method:'POST',headers:hdr(),body:JSON.stringify(body)}).then(function(r){return r.json()});
+    var r=await adminFetch('/admin/convert',{method:'POST',headers:hdr(),body:JSON.stringify(body)}).then(function(r){return r.json()});
     var created=r.created||0,failed=r.failed||0,skipped=r.skipped||0,linked=r.linked||0;
     p.innerHTML='<div style="padding:12px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">'
       +'<div style="color:var(--ok);font-weight:600;margin-bottom:6px">Convert complete!</div>'
       +'<div style="font-size:13px">Created: <b>'+created+'</b> · Linked: <b>'+linked+'</b> · Skipped: '+skipped+(failed>0?' · <span style="color:var(--err)">Failed: '+failed+'</span>':'')+'</div></div>';
     setTimeout(refreshAll,1500);
   }catch(e){
-    p.innerHTML='<div style="padding:12px;background:var(--bg2);border-radius:10px;border:1px solid var(--err)"><span style="color:var(--err)">Error: '+e.message+'</span></div>';
+    p.innerHTML='<div style="padding:12px;background:var(--bg2);border-radius:10px;border:1px solid var(--err)"><span style="color:var(--err)">Error: '+escHtml(e.message)+'</span></div>';
     if(a1)a1.disabled=false;if(a2)a2.disabled=false;
   }
 }
@@ -2994,15 +3107,15 @@ function renderProviders(){
       var st = statusLine(conn, cat);
       var connected = !!conn;
       var btn = connected
-        ? '<button class="btn sm" onclick="openProviderManage(\''+id+'\')">Manage</button>'
-        : '<button class="btn sm ghost" onclick="openProviderAdd(\''+id+'\')">+ Add</button>';
+        ? '<button class="btn sm" onclick="openProviderManage(\''+escJs(id)+'\')">Manage</button>'
+        : '<button class="btn sm ghost" onclick="openProviderAdd(\''+escJs(id)+'\')">+ Add</button>';
       if(mode==='catalog' && item.comingSoon && !connected){
-        btn = '<button class="btn sm ghost" onclick="openProviderAdd(\''+id+'\')">+ Setup</button>';
+        btn = '<button class="btn sm ghost" onclick="openProviderAdd(\''+escJs(id)+'\')">+ Setup</button>';
       }
       return '<div class="prov-card'+(connected?' connected':'')+'">'
         +window.getProviderLogo(id, 40)
-        +'<div class="prov-meta"><div class="prov-name">'+name+'</div>'
-        +'<div class="prov-status">'+(st.dot?('<span class="sdot '+st.dot+'"></span>'):'')+st.text+'</div></div>'
+        +'<div class="prov-meta"><div class="prov-name">'+escHtml(name)+'</div>'
+        +'<div class="prov-status">'+(st.dot?('<span class="sdot '+escAttr(st.dot)+'"></span>'):'')+escHtml(st.text)+'</div></div>'
         +'<div class="prov-actions">'+btn+'</div></div>';
     }).join('');
   }
@@ -3019,7 +3132,7 @@ function renderProviders(){
   body += '<div class="prov-top">'
     +'<div class="title-block"><h2 style="display:flex;align-items:center;gap:8px">'+icon('providers',16)+' Providers</h2></div>'
     +'<button class="btn sm" onclick="testAllProviders()">▶ Test All</button>'
-    +'<input class="prov-search" id="provSearch" placeholder="Search providers..." value="'+PROV_SEARCH.replace(/"/g,'&quot;')+'" oninput="setProvSearch(this.value,this)">'
+    +'<input class="prov-search" id="provSearch" placeholder="Search providers..." value="'+escAttr(PROV_SEARCH)+'" oninput="setProvSearch(this.value,this)">'
     +'</div>';
 
   // OAuth / Free / API Key sections
@@ -3052,15 +3165,15 @@ function renderProviders(){
         var cnt = (p.proxyPool && p.proxyPool.activeCount) || 0;
         proxyTag = ' · <span style="color:var(--purple)" title="Rotates through '+cnt+' proxy pools">rotate ('+cnt+')</span>';
       } else if(p.proxyPoolId && p.proxyPool){
-        proxyTag = ' · <span style="color:var(--cyan)" title="Via '+p.proxyPool.name+'">via proxy</span>';
+        proxyTag = ' · <span style="color:var(--cyan)" title="Via '+escAttr(p.proxyPool.name)+'">via proxy</span>';
       }
       return '<div class="prov-card connected">'
         +window.getProviderLogo(p.prefix, 40)
         +'<div class="prov-meta" style="flex:1;min-width:0;overflow:hidden">'
-        +'<div class="prov-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(p.name||p.prefix)+' <span style="color:var(--mut2);font-weight:500">('+p.prefix+')</span></div>'
-        +'<div class="prov-status" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+st.text+' · '+(p.type||'openai')+' · '+(p.authMode||'api-key')+'"><span class="sdot '+(st.dot||'')+'"></span>'+st.text+' · '+(p.type||'openai')+' · '+(p.authMode||'api-key')+proxyTag+'</div></div>'
+        +'<div class="prov-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(p.name||p.prefix)+' <span style="color:var(--mut2);font-weight:500">('+escHtml(p.prefix)+')</span></div>'
+        +'<div class="prov-status" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+escAttr(st.text+' · '+(p.type||'openai')+' · '+(p.authMode||'api-key'))+'"><span class="sdot '+escAttr(st.dot||'')+'"></span>'+escHtml(st.text)+' · '+escHtml(p.type||'openai')+' · '+escHtml(p.authMode||'api-key')+proxyTag+'</div></div>'
         +'<div class="prov-actions" style="flex-shrink:0">'
-        +'<button class="btn sm" onclick="openProviderManage(\''+p.prefix+'\')">Manage</button>'
+        +'<button class="btn sm" onclick="openProviderManage(\''+escJs(p.prefix)+'\')">Manage</button>'
         +'</div></div>';
     }).join('')+'</div>';
     body += '</div>';
@@ -3083,7 +3196,13 @@ function renderProviders(){
   }
 }
 
-function closeProvModal(){ MODAL=null; var r=document.getElementById('provModalRoot'); if(r) r.innerHTML=''; }
+function closeProvModal(){
+  MODAL=null;
+  var r=document.getElementById('provModalRoot');
+  var back=r&&r.querySelector('.modal-back');
+  if(back) closeAccessibleModal(back);
+  if(r) r.innerHTML='';
+}
 function openProviderAdd(id){
   var cat = findCatalog(id) || findCatalog('custom');
   var conn = connectedMap()[id];
@@ -3119,19 +3238,19 @@ function renderProvModal(){
   var keys = (conn && conn.keys) || [];
 
   var keysRows = keys.map(function(k){
-    return '<tr><td style="font-size:11px;color:var(--mut)">'+k.id+'</td>'
-      +'<td style="font-size:11px">'+maskKey(k.keyMasked)+'</td>'
+    return '<tr><td style="font-size:11px;color:var(--mut)">'+escHtml(k.id)+'</td>'
+      +'<td style="font-size:11px">'+escHtml(maskKey(k.keyMasked))+'</td>'
       +'<td><span class="badge '+(k.enabled?'active':'disabled')+'">'+(k.enabled?'on':'off')+'</span></td>'
       +'<td style="white-space:nowrap">'
-      +'<button class="btn sm" onclick="toggleKey(\''+prefix+'\',\''+k.id+'\','+(!k.enabled)+')">'+(k.enabled?'Off':'On')+'</button> '
-      +'<button class="btn sm" style="color:var(--err)" onclick="deleteKey(\''+prefix+'\',\''+k.id+'\')">Del</button>'
+      +'<button class="btn sm" onclick="toggleKey(\''+escJs(prefix)+'\',\''+escJs(k.id)+'\','+(!k.enabled)+')">'+(k.enabled?'Off':'On')+'</button> '
+      +'<button class="btn sm" style="color:var(--err)" onclick="deleteKey(\''+escJs(prefix)+'\',\''+escJs(k.id)+'\')">Del</button>'
       +'</td></tr>';
   }).join('') || '<tr><td colspan="4" style="color:var(--mut);text-align:center;padding:12px">No keys yet</td></tr>';
 
   root.innerHTML =
     '<div class="modal-back" onclick="if(event.target===this)closeProvModal()">'
     +'<div class="modal">'
-    +'<div class="modal-head"><h3>'+title+'</h3><button class="btn sm ghost" onclick="closeProvModal()" aria-label="Close">✕</button></div>'
+    +'<div class="modal-head"><h3>'+escHtml(title)+'</h3><button class="btn sm ghost" onclick="closeProvModal()" aria-label="Close">✕</button></div>'
     +'<div class="modal-body">'
     +(cat.comingSoon && mode==='add' ? '<div style="padding:10px 12px;border-radius:10px;background:#f0a93b15;color:var(--warn);font-size:12px;margin-bottom:12px">OAuth button full belum. Bisa setup manual pakai API key / token dulu.</div>' : '')
     +'<div class="chip-row">'
@@ -3140,19 +3259,19 @@ function renderProvModal(){
     +'<div class="chip active" id="chipModeSingle" onclick="setModalKeyMode(\'single\')">Single</div>'
     +'<div class="chip" id="chipModeBulk" onclick="setModalKeyMode(\'bulk\')">Bulk</div>'
     +'</div>'
-    +'<input type="hidden" id="pvAuthMode" value="'+auth+'">'
+    +'<input type="hidden" id="pvAuthMode" value="'+escAttr(auth)+'">'
     +'<input type="hidden" id="pvKeyMode" value="single">'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-    +'<div class="field"><label>Prefix *</label><input id="pvPrefix" type="text" value="'+prefix+'" '+(conn||cat.lockedPrefix?'readonly style="opacity:.75"':'')+' placeholder="cbai"></div>'
-    +'<div class="field"><label>Display Name</label><input id="pvName" type="text" value="'+(conn&&conn.name||cat.name||'')+'" placeholder="Provider name"></div>'
+    +'<div class="field"><label>Prefix *</label><input id="pvPrefix" type="text" value="'+escAttr(prefix)+'" '+(conn||cat.lockedPrefix?'readonly style="opacity:.75"':'')+' placeholder="cbai"></div>'
+    +'<div class="field"><label>Display Name</label><input id="pvName" type="text" value="'+escAttr(conn&&conn.name||cat.name||'')+'" placeholder="Provider name"></div>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
     +'<div class="field"><label>Type</label><select id="pvType"><option value="openai"'+(typ==='openai'?' selected':'')+'>OpenAI Compatible</option><option value="codebuddy"'+(typ==='codebuddy'?' selected':'')+'>CodeBuddy Native</option></select></div>'
-    +'<div class="field"><label>Base URL *</label><input id="pvBase" type="text" value="'+base+'" placeholder="https://api.openai.com/v1"></div>'
+    +'<div class="field"><label>Base URL *</label><input id="pvBase" type="text" value="'+escAttr(base)+'" placeholder="https://api.openai.com/v1"></div>'
     +'</div>'
     +'<div class="field" id="singleKeyBox"><label>API Key '+(mode==='manage'?'(optional add)':'*')+'</label><input id="pvKey" type="password" placeholder="'+(keyCount?'kosong = keep existing':'sk-... / ck_...')+'"></div>'
     +'<div class="field hidden" id="bulkKeyBox"><label>Bulk API Keys (1 per line)</label><textarea id="pvBulkKeys" rows="5" placeholder="ck_xxx\nck_yyy\nsk_zzz"></textarea><div class="hint">Bulk keys join the same pool with round-robin.</div></div>'
-    +'<div class="field"><label>Models (id atau id|label)</label><textarea id="pvModels" rows="4">'+models+'</textarea></div>'
+    +'<div class="field"><label>Models (id atau id|label)</label><textarea id="pvModels" rows="4">'+escHtml(models)+'</textarea></div>'
     +'<label style="font-size:12px;color:var(--mut);display:flex;gap:6px;align-items:center;margin-bottom:8px"><input type="checkbox" id="pvEnabled" '+( !conn || conn.enabled!==false ? 'checked':'' )+'> Enabled</label>'
     +(function(){
       var poolsAll = PROXY_POOLS_DATA||[];
@@ -3163,7 +3282,7 @@ function renderProvModal(){
       var poolOpts = poolsEnabled.map(function(pp){
         var sel = (curId===pp.id) ? ' selected' : '';
         var stTag = pp.status==='active' ? ' •' : (pp.status==='error' ? ' ×' : '');
-        return '<option value="'+pp.id+'"'+sel+'>'+pp.name+' · '+pp.url+stTag+'</option>';
+        return '<option value="'+escAttr(pp.id)+'"'+sel+'>'+escHtml(pp.name)+' · '+escHtml(pp.url)+stTag+'</option>';
       }).join('');
       return '<div class="field" style="margin-top:12px;padding:12px;background:var(--bg2);border-radius:10px;border-left:3px solid var(--acc)">'
         +'<label style="display:flex;align-items:center;gap:6px"><span>Egress Proxy</span><span style="font-size:10px;color:var(--mut2);font-weight:400">optional · routes via proxy pool</span></label>'
@@ -3186,11 +3305,12 @@ function renderProvModal(){
     +'<div id="pvResult" style="margin-top:10px"></div>'
     +'</div>'
     +'<div class="modal-foot">'
-    +(mode==='manage' && prefix!=='grok' ? '<button class="btn sm" style="color:var(--err);margin-right:auto" onclick="deleteProvider(\''+prefix+'\')">Delete Provider</button>' : '<span style="margin-right:auto"></span>')
+    +(mode==='manage' && prefix!=='grok' ? '<button class="btn sm" style="color:var(--err);margin-right:auto" onclick="deleteProvider(\''+escJs(prefix)+'\')">Delete Provider</button>' : '<span style="margin-right:auto"></span>')
     +'<button class="btn" onclick="closeProvModal()">Cancel</button>'
     +'<button class="btn sm" onclick="testProviderForm()">Test API Key</button>'
     +'<button class="btn primary" onclick="saveProvider()">'+(mode==='manage'?'Update':'Connect')+'</button>'
     +'</div></div></div>';
+  activateAccessibleModal(root.querySelector('.modal-back'), title);
 }
 
 function setModalAuth(mode){
@@ -3236,24 +3356,30 @@ async function saveProvider(){
   if(!body.models.length){ out.innerHTML='<span style="color:var(--err)">Minimal 1 model</span>'; return; }
   out.innerHTML='<span style="color:var(--acc)">Saving...</span>';
   try{
-    var r=await fetch('/admin/providers',{method:'POST',headers:hdr(),body:JSON.stringify(body)}).then(function(r){return r.json()});
-    if(r.error){ out.innerHTML='<span style="color:var(--err)">'+r.error+'</span>'; return; }
+    var r=await adminFetch('/admin/providers',{method:'POST',headers:hdr(),body:JSON.stringify(body)}).then(function(r){return r.json()});
+    if(r.error){ out.innerHTML='<span style="color:var(--err)">'+escHtml(r.error)+'</span>'; return; }
     // Save proxy pool association
     try {
       var proxyPoolEl = document.getElementById('pvProxyPool');
       if(proxyPoolEl) {
-        await fetch('/admin/providers/proxy',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:body.prefix,proxyPoolId:proxyPoolEl.value||''})});
+        var assocRes = await adminFetch('/admin/providers/proxy',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:body.prefix,proxyPoolId:proxyPoolEl.value||''})});
+        var assocBody = await assocRes.json().catch(function(){ return {}; });
+        if(!assocRes.ok || assocBody.error) throw new Error(assocBody.error || 'Proxy association failed (HTTP '+assocRes.status+')');
       }
-    } catch(e){}
-    out.innerHTML='<span style="color:var(--ok)">Saved <b>'+body.prefix+'</b></span>';
+    } catch(e){
+      out.innerHTML='<span style="color:var(--warn)">Provider saved, but proxy association failed: '+escHtml(e.message)+'</span>';
+      toast('Provider saved, proxy association failed: '+e.message, 'warn', 7000);
+      return;
+    }
+    out.innerHTML='<span style="color:var(--ok)">Saved <b>'+escHtml(body.prefix)+'</b></span>';
     await refreshAll();
     MODAL = {mode:'manage', id:body.prefix, cat:findCatalog(body.prefix), conn:connectedMap()[body.prefix]};
     renderProviders();
-  }catch(e){ out.innerHTML='<span style="color:var(--err)">'+e.message+'</span>'; }
+  }catch(e){ out.innerHTML='<span style="color:var(--err)">'+escHtml(e.message)+'</span>'; }
 }
 async function toggleProvider(prefix, enabled){
   try{
-    var r=await fetch('/admin/providers/toggle',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix,enabled:!!enabled})}).then(function(r){return r.json()});
+    var r=await adminFetch('/admin/providers/toggle',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix,enabled:!!enabled})}).then(function(r){return r.json()});
     if(r.error){ toast(r.error, 'error'); return; }
     await refreshAll(); goPage('providers');
   }catch(e){ toast(e.message, 'error'); }
@@ -3262,7 +3388,7 @@ async function deleteProvider(prefix){
   if(prefix==='grok'){ toast('Default grok provider cannot be deleted', 'warn'); return; }
   if(!(await askConfirm({message: 'Delete provider '+prefix+'?', danger: true, confirmText: 'Delete'}))) return;
   try{
-    var r=await fetch('/admin/providers/delete',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix})}).then(function(r){return r.json()});
+    var r=await adminFetch('/admin/providers/delete',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix})}).then(function(r){return r.json()});
     if(r.error){ toast(r.error, 'error'); return; }
     closeProvModal();
     await refreshAll(); goPage('providers');
@@ -3270,13 +3396,13 @@ async function deleteProvider(prefix){
 }
 async function deleteKey(prefix,id){
   if(!(await askConfirm({message: 'Delete key '+id+'?', danger: true, confirmText: 'Delete'}))) return;
-  await fetch('/admin/providers/keys/delete',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix,id:id})});
+  await adminFetch('/admin/providers/keys/delete',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix,id:id})});
   await refreshAll();
   MODAL = {mode:'manage', id:prefix, cat:findCatalog(prefix), conn:connectedMap()[prefix]};
   renderProviders();
 }
 async function toggleKey(prefix,id,enabled){
-  await fetch('/admin/providers/keys/toggle',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix,id:id,enabled:!!enabled})});
+  await adminFetch('/admin/providers/keys/toggle',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix,id:id,enabled:!!enabled})});
   await refreshAll();
   MODAL = {mode:'manage', id:prefix, cat:findCatalog(prefix), conn:connectedMap()[prefix]};
   renderProviders();
@@ -3298,20 +3424,20 @@ async function testProviderForm(){
     // also send draft config so unsaved provider can be tested
     body.type=(document.getElementById('pvType')||{}).value||'openai';
     body.baseUrl=((document.getElementById('pvBase')||{}).value||'').trim();
-    var r=await fetch('/admin/providers/test',{method:'POST',headers:hdr(),body:JSON.stringify(body)}).then(function(r){return r.json()});
+    var r=await adminFetch('/admin/providers/test',{method:'POST',headers:hdr(),body:JSON.stringify(body)}).then(function(r){return r.json()});
     if(r.error || r.ok===false){
-      out.innerHTML='<span style="color:var(--err)">INVALID / FAIL</span><div class="chat-box" style="margin-top:8px">'+(r.error||r.message||JSON.stringify(r)).toString().slice(0,700)+'</div>';
+      out.innerHTML='<span style="color:var(--err)">INVALID / FAIL</span><div class="chat-box" style="margin-top:8px">'+escHtml((r.error||r.message||JSON.stringify(r)).toString().slice(0,700))+'</div>';
     } else {
-      out.innerHTML='<span style="color:var(--ok)">VALID · '+(r.latencyMs||'?')+'ms · '+(r.model||model||'')+'</span><div class="chat-box" style="margin-top:8px">'+(r.reply||'OK').toString().slice(0,500)+'</div>';
+      out.innerHTML='<span style="color:var(--ok)">VALID · '+escHtml(r.latencyMs||'?')+'ms · '+escHtml(r.model||model||'')+'</span><div class="chat-box" style="margin-top:8px">'+escHtml((r.reply||'OK').toString().slice(0,500))+'</div>';
     }
-  }catch(e){ out.innerHTML='<span style="color:var(--err)">'+e.message+'</span>'; }
+  }catch(e){ out.innerHTML='<span style="color:var(--err)">'+escHtml(e.message)+'</span>'; }
 }
 
 async function probeProviderCredits(prefix, limit){
   prefix = prefix || 'cbai';
   limit = limit || 10;
   try{
-    var r = await fetch('/admin/providers/probe-credits',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix,limit:limit})}).then(function(r){return r.json();});
+    var r = await adminFetch('/admin/providers/probe-credits',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix,limit:limit})}).then(function(r){return r.json();});
     if(r.error){ toast('Probe error: '+r.error, 'error'); return r; }
     var ok=r.ok||0, fail=r.failed||0;
     var spent = (r.results||[]).filter(function(x){return x.ok;}).reduce(function(a,x){return a+Number(x.credit||0);},0);
@@ -3324,7 +3450,7 @@ async function testGatewayKey(prefix, keyId){
   try{
     var body = { prefix: prefix };
     if(keyId) body.keyId = keyId;
-    var r = await fetch('/admin/providers/test',{method:'POST',headers:hdr(),body:JSON.stringify(body)}).then(function(r){return r.json();});
+    var r = await adminFetch('/admin/providers/test',{method:'POST',headers:hdr(),body:JSON.stringify(body)}).then(function(r){return r.json();});
     var ok = !!(r && (r.ok || r.valid));
     var msg = (ok?'VALID':'INVALID')+' · '+(prefix||'?')+(keyId?(' / '+keyId):'');
     if(r.latencyMs!=null) msg += '\n'+r.latencyMs+'ms';
@@ -3338,7 +3464,7 @@ async function testGatewayKey(prefix, keyId){
 
 async function testProviderByPrefix(prefix){
   try{
-    var r=await fetch('/admin/providers/test',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix,prompt:'Reply with exactly: OK'})}).then(function(r){return r.json()});
+    var r=await adminFetch('/admin/providers/test',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix,prompt:'Reply with exactly: OK'})}).then(function(r){return r.json()});
     if(r.error || r.ok===false) toast(prefix+': '+(r.error||'fail'), 'error');
     else toast(prefix+' VALID ('+(r.latencyMs||'?')+'ms)\n'+(r.reply||'').toString().slice(0,120), 'success');
   }catch(e){ toast(e.message, 'error'); }
@@ -3350,7 +3476,7 @@ async function testAllProviders(){
   for(var i=0;i<list.length;i++){
     var p=list[i];
     try{
-      var r=await fetch('/admin/providers/test',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:p.prefix,prompt:'Reply with exactly: OK'})}).then(function(r){return r.json()});
+      var r=await adminFetch('/admin/providers/test',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:p.prefix,prompt:'Reply with exactly: OK'})}).then(function(r){return r.json()});
       lines.push((r.ok!==false && !r.error?'●':'○')+' '+p.prefix+' · '+(r.latencyMs||'-')+'ms · '+(r.error||r.reply||'').toString().slice(0,80));
     }catch(e){ lines.push(''+p.prefix+' · '+e.message); }
   }
@@ -3404,22 +3530,22 @@ function renderProviderModels(src){
       ? '<span class="badge active" style="margin-left:6px">live</span>'
       : '<span class="badge disabled" style="margin-left:6px">disabled</span>';
     var fullPath = src.prefix+'/'+mid;
-    var copyBtn = '<button class="btn sm ghost" style="padding:2px 6px;font-size:10px;flex-shrink:0" onclick="event.stopPropagation();navigator.clipboard.writeText(\''+fullPath.replace(/'/g,"\\'")+'\').then(function(){toast(\'Copied \'+\''+fullPath.replace(/'/g,"\\'")+'\'+\'\',\'success\',1500)})" title="Copy model path">📋</button>';
-    var testBtn = '<button class="btn sm ghost" style="padding:2px 6px;font-size:10px;flex-shrink:0" onclick="event.stopPropagation();testModelCall(\''+src.prefix+'\',\''+mid.replace(/'/g,"\\'")+'\')" title="Test this model">▶</button>';
+    var copyBtn = '<button class="btn sm ghost" style="padding:2px 6px;font-size:10px;flex-shrink:0" onclick="event.stopPropagation();navigator.clipboard.writeText(\''+escJs(fullPath)+'\').then(function(){toast(\'Copied \'+\''+escJs(fullPath)+'\'+\'\',\'success\',1500)})" title="Copy model path">📋</button>';
+    var testBtn = '<button class="btn sm ghost" style="padding:2px 6px;font-size:10px;flex-shrink:0" onclick="event.stopPropagation();testModelCall(\''+escJs(src.prefix)+'\',\''+escJs(mid)+'\')" title="Test this model">▶</button>';
     var menuBtn = '<div class="dropdown" style="position:relative;display:inline-block">'
       +'<button class="btn sm ghost" style="padding:2px 6px;font-size:10px;flex-shrink:0" onclick="event.stopPropagation();this.parentElement.classList.toggle(\'open\')" title="More actions">⋮</button>'
       +'<div class="dropdown-menu" style="display:none;position:absolute;right:0;top:100%;background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:4px;min-width:120px;z-index:50;box-shadow:0 4px 12px rgba(0,0,0,0.3)">'
-      +'<button class="btn sm ghost" style="width:100%;text-align:left;padding:6px 10px;font-size:11px;border:none;background:transparent;color:var(--fg);cursor:pointer;display:block" onclick="event.stopPropagation();testModelCall(\''+src.prefix+'\',\''+mid.replace(/'/g,"\\'")+'\');this.closest(\'.dropdown\').classList.remove(\'open\')">Test</button>'
-      +'<button class="btn sm ghost" style="width:100%;text-align:left;padding:6px 10px;font-size:11px;border:none;background:transparent;color:var(--fg);cursor:pointer;display:block" onclick="event.stopPropagation();navigator.clipboard.writeText(\''+fullPath.replace(/'/g,"\\'")+'\').then(function(){toast(\'Copied\',\'success\',1500)});this.closest(\'.dropdown\').classList.remove(\'open\')">Copy path</button>'
+      +'<button class="btn sm ghost" style="width:100%;text-align:left;padding:6px 10px;font-size:11px;border:none;background:transparent;color:var(--fg);cursor:pointer;display:block" onclick="event.stopPropagation();testModelCall(\''+escJs(src.prefix)+'\',\''+escJs(mid)+'\');this.closest(\'.dropdown\').classList.remove(\'open\')">Test</button>'
+      +'<button class="btn sm ghost" style="width:100%;text-align:left;padding:6px 10px;font-size:11px;border:none;background:transparent;color:var(--fg);cursor:pointer;display:block" onclick="event.stopPropagation();navigator.clipboard.writeText(\''+escJs(fullPath)+'\').then(function(){toast(\'Copied\',\'success\',1500)});this.closest(\'.dropdown\').classList.remove(\'open\')">Copy path</button>'
       +'</div></div>';
     return '<div class="model-item">'
-      +'<div class="mid" title="'+mid.replace(/"/g,'&quot;')+'">'+shortId+'</div>'
+      +'<div class="mid" title="'+escAttr(mid)+'">'+escHtml(shortId)+'</div>'
       +'<div class="meta">'
-      +(m.label && m.label!==mid ? m.label : '')
+      +(m.label && m.label!==mid ? escHtml(m.label) : '')
       + statusBadge
       +'<div style="margin-top:6px;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mut)">'
       +'<span style="flex-shrink:0">call:</span>'
-      +'<code style="font-size:10px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+fullPath.replace(/"/g,'&quot;')+'">'+fullPath+'</code>'
+      +'<code style="font-size:10px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escAttr(fullPath)+'">'+escHtml(fullPath)+'</code>'
       + copyBtn
       + testBtn
       + menuBtn
@@ -3492,8 +3618,8 @@ function renderModels(){
   var provChips = unified.map(function(u){
     var isSel = (MODELS_PROV===u.prefix);
     var count = u.models.length;
-    return '<div class="pchip '+(isSel?'active':'')+'" onclick="setModelsProv(\''+u.prefix+'\')">'
-      + u.name + ' <span class="n">'+count+'</span>'
+    return '<div class="pchip '+(isSel?'active':'')+'" onclick="setModelsProv(\''+escJs(u.prefix)+'\')">'
+      + escHtml(u.name) + ' <span class="n">'+count+'</span>'
       +'</div>';
   }).join('');
 
@@ -3539,24 +3665,25 @@ function renderModels(){
 // ============ Add / Test Model ============
 function openAddModelModal(){
   var providers = SUM.providers || [];
-  var opts = providers.map(function(p){return '<option value="'+p.prefix+'">'+p.name+' ('+p.prefix+')</option>';}).join('');
+  var opts = providers.map(function(p){return '<option value="'+escAttr(p.prefix)+'">'+escHtml(p.name)+' ('+escHtml(p.prefix)+')</option>';}).join('');
   if(!opts) opts = '<option value="">— no connected providers —</option>';
   var back = document.createElement('div');
   back.className = 'modal-back';
   back.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px';
   back.innerHTML = '<div class="modal" style="width:min(480px,100%)">'
-    +'<div class="modal-head"><h3>Add Model</h3><button class="btn sm ghost" onclick="this.closest(\'.modal-back\').remove()">✕</button></div>'
+    +'<div class="modal-head"><h3>Add Model</h3><button class="btn sm ghost" onclick="closeAccessibleModal(this.closest(\'.modal-back\'))">✕</button></div>'
     +'<div class="modal-body">'
     +'<div class="field"><label>Provider</label><select id="amProv">'+opts+'</select></div>'
     +'<div class="field"><label>Model ID</label><input type="text" id="amId" placeholder="e.g. claude-opus-4.7 or gpt-5.5"></div>'
     +'<div class="field"><label>Display Label (optional)</label><input type="text" id="amLabel" placeholder="e.g. Claude Opus 4.7"></div>'
     +'<div class="hint">Model will be added to the selected provider. Model ID must be unique per provider.</div>'
     +'</div>'
-    +'<div class="modal-foot"><button class="btn" onclick="this.closest(\'.modal-back\').remove()">Cancel</button>'
+    +'<div class="modal-foot"><button class="btn" onclick="closeAccessibleModal(this.closest(\'.modal-back\'))">Cancel</button>'
     +'<button class="btn primary" onclick="submitAddModel(this)">Add</button></div>'
     +'</div>';
   document.body.appendChild(back);
-  back.addEventListener('click', function(e){ if(e.target===back) back.remove(); });
+  activateAccessibleModal(back, 'Add Model');
+  back.addEventListener('click', function(e){ if(e.target===back) closeAccessibleModal(back); });
 }
 async function submitAddModel(btn){
   var prefix = document.getElementById('amProv').value;
@@ -3571,11 +3698,11 @@ async function submitAddModel(btn){
   }
   btn.disabled = true;
   try{
-    var r = await fetch('/admin/providers/models/add',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix, id:id, label:label||id})}).then(function(r){return r.json();});
+    var r = await adminFetch('/admin/providers/models/add',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix, id:id, label:label||id})}).then(function(r){return r.json();});
     if(r.error){ toast('Error: '+r.error, 'error'); }
     else{
       toast('Model '+id+' added to '+prefix, 'success');
-      document.querySelector('.modal-back').remove();
+      closeAccessibleModal(btn.closest('.modal-back'));
       await refreshAll();
     }
   }catch(e){ toast('Add failed: '+e.message, 'error'); }
@@ -3584,7 +3711,7 @@ async function submitAddModel(btn){
 async function testModelCall(prefix, modelId){
   var toastId = toast('Testing '+prefix+'/'+modelId+'...', 'info', 30000);
   try{
-    var r = await fetch('/admin/providers/test-model',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix, model:modelId})}).then(function(r){return r.json();});
+    var r = await adminFetch('/admin/providers/test-model',{method:'POST',headers:hdr(),body:JSON.stringify({prefix:prefix, model:modelId})}).then(function(r){return r.json();});
     if(toastId && toastId.remove) toastId.remove();
     if(r.ok || r.valid){
       toast('✓ '+prefix+'/'+modelId+' · '+(r.latencyMs||'?')+'ms'+(r.reply?(' · '+String(r.reply).slice(0,60)):''), 'success', 6000);
@@ -3622,16 +3749,16 @@ function renderEgress(){
   allE.forEach(function(n){ var s=n.scope||'other'; scopeCounts[s]=(scopeCounts[s]||0)+1; });
   var scopeChips = ['all','grok_build','grok_web','grok_console','grok_web_asset'].map(function(s){
     var lab = s==='all'?'All':s.replace('grok_','');
-    return '<div class="pchip '+(scopeF===s?'active':'')+'" onclick="setProxyScopeFilter(\''+s+'\')">'+lab+' <span class="n">'+(scopeCounts[s]||0)+'</span></div>';
+    return '<div class="pchip '+(scopeF===s?'active':'')+'" onclick="setProxyScopeFilter(\''+escJs(s)+'\')">'+escHtml(lab)+' <span class="n">'+(scopeCounts[s]||0)+'</span></div>';
   }).join('');
   var rows=e.map(function(n){
     var h=n.health||0;
     var hCls=h>=0.9?'ok':h>0?'m':'l';
     var hColor=h>=0.9?'var(--ok)':h>0?'var(--warn)':'var(--err)';
-    return '<tr><td><input type="checkbox" class="proxy-check" value="'+n.id+'"></td>'
-      +'<td style="color:var(--mut);font-size:11px">'+n.id+'</td>'
-      +'<td style="font-weight:600">'+n.name+'</td>'
-      +'<td><span class="badge '+(n.scope==='grok_build'?'build':'web')+'">'+n.scope+'</span></td>'
+    return '<tr><td><input type="checkbox" class="proxy-check" value="'+escAttr(n.id)+'"></td>'
+      +'<td style="color:var(--mut);font-size:11px">'+escHtml(n.id)+'</td>'
+      +'<td style="font-weight:600">'+escHtml(n.name)+'</td>'
+      +'<td><span class="badge '+(n.scope==='grok_build'?'build':'web')+'">'+escHtml(n.scope)+'</span></td>'
       +'<td style="font-size:11px;color:var(--mut2)">'+(n.proxyConfigured?'configured':'none')+'</td>'
       +'<td><div class="qbar"><div class="fill '+hCls+'" style="width:'+Math.round(h*100)+'%"></div></div><span style="font-size:11px;color:'+hColor+'">'+Math.round(h*100)+'%</span></td>'
       +'<td style="color:'+(n.failureCount>0?'var(--err)':'var(--mut2)')+'">'+(n.failureCount||0)+'</td>'
@@ -3680,7 +3807,7 @@ async function addProxies(){
     for(var si=0; si<scopes.length; si++){
       var sc=scopes[si];
       var namePrefix = scopes.length>1 ? (prefix+'-'+sc.replace('grok_','')) : prefix;
-      var r=await fetch('/admin/egress/add',{method:'POST',headers:hdr(),body:JSON.stringify({proxies:proxies,scope:sc,namePrefix:namePrefix})}).then(function(r){return r.json();});
+      var r=await adminFetch('/admin/egress/add',{method:'POST',headers:hdr(),body:JSON.stringify({proxies:proxies,scope:sc,namePrefix:namePrefix})}).then(function(r){return r.json();});
       totalAdded += (r.added||0);
       totalFailed += (r.failed||0);
       details.push(sc+': +'+(r.added||0)+(r.failed?(' / fail '+r.failed):''));
@@ -3692,7 +3819,7 @@ async function addProxies(){
     out.innerHTML=html;
     document.getElementById('proxyInput').value='';
     await loadEgress();renderEgress();
-  }catch(e){out.innerHTML='<p style="color:var(--err)">'+e.message+'</p>';}
+  }catch(e){out.innerHTML='<p style="color:var(--err)">'+escHtml(e.message)+'</p>';}
   btn.disabled=false;
 }
 function toggleProxyCheckAll(cb){document.querySelectorAll('.proxy-check').forEach(function(c){c.checked=cb.checked});}
@@ -3700,11 +3827,11 @@ function toggleAllProxies(){var cba=document.getElementById('proxyCheckAll');cba
 async function deleteSelectedProxies(){
   var ids=Array.from(document.querySelectorAll('.proxy-check:checked')).map(function(c){return parseInt(c.value)});
   if(!ids.length)return;if(!(await askConfirm({message: 'Delete '+ids.length+' proxies?', danger: true, confirmText: 'Delete'}))) return;
-  await fetch('/admin/egress/delete',{method:'POST',headers:hdr(),body:JSON.stringify({ids:ids})}).then(r=>r.json());
+  await adminFetch('/admin/egress/delete',{method:'POST',headers:hdr(),body:JSON.stringify({ids:ids})}).then(r=>r.json());
   await loadEgress();renderEgress();
 }
 async function toggleProxy(id,enabled){
-  await fetch('/admin/egress/toggle',{method:'POST',headers:hdr(),body:JSON.stringify({id:id,enabled:enabled})});
+  await adminFetch('/admin/egress/toggle',{method:'POST',headers:hdr(),body:JSON.stringify({id:id,enabled:enabled})});
 }
 
 
@@ -3712,7 +3839,7 @@ async function toggleProxy(id,enabled){
 let PROXY_POOLS_DATA = null;
 async function loadProxyPools(){
   try {
-    var r = await fetch('/admin/proxy-pools', {headers:hdr()}).then(function(r){return r.json();});
+    var r = await adminFetch('/admin/proxy-pools', {headers:hdr()}).then(function(r){return r.json();});
     PROXY_POOLS_DATA = r.items || [];
   } catch(e){ PROXY_POOLS_DATA = []; }
 }
@@ -3731,17 +3858,19 @@ function renderProxyPools(){
     var statusBadge = p.status==='active' ? '<span class="badge active">active</span>'
       : p.status==='error' ? '<span class="badge error">error</span>'
       : '<span class="badge disabled">unknown</span>';
-    var linkedText = (p.usedBy||[]).map(function(u){return u.prefix;}).join(', ') || '<span style="color:var(--mut2)">—</span>';
+    var linkedText = (p.usedBy||[]).length
+      ? escHtml((p.usedBy||[]).map(function(u){return u.prefix;}).join(', '))
+      : '<span style="color:var(--mut2)">—</span>';
     return '<tr>'
-      + '<td><input type="checkbox" class="pool-check" value="'+p.id+'"></td>'
-      + '<td style="color:var(--mut);font-size:11px">'+p.id+'</td>'
-      + '<td style="font-weight:600">'+p.name+'</td>'
-      + '<td style="font-size:11px;color:var(--mut);font-family:var(--mono,monospace);word-break:break-all">'+p.url+'</td>'
+      + '<td><input type="checkbox" class="pool-check" value="'+escAttr(p.id)+'"></td>'
+      + '<td style="color:var(--mut);font-size:11px">'+escHtml(p.id)+'</td>'
+      + '<td style="font-weight:600">'+escHtml(p.name)+'</td>'
+      + '<td style="font-size:11px;color:var(--mut);font-family:var(--mono,monospace);word-break:break-all">'+escHtml(p.url)+'</td>'
       + '<td>'+statusBadge+'</td>'
       + '<td style="font-size:11px">'+linkedText+'</td>'
       + '<td style="color:var(--mut2);font-size:11px">'+(p.lastTested?timeAgo(p.lastTested):'never')+'</td>'
-      + '<td><input type="checkbox" '+(p.enabled?'checked':'')+' onchange="togglePool(\''+p.id+'\',this.checked)"></td>'
-      + '<td style="white-space:nowrap"><button class="btn sm" onclick="testPool(\''+p.id+'\')">Test</button></td>'
+      + '<td><input type="checkbox" '+(p.enabled?'checked':'')+' onchange="togglePool(\''+escJs(p.id)+'\',this.checked)"></td>'
+      + '<td style="white-space:nowrap"><button class="btn sm" onclick="testPool(\''+escJs(p.id)+'\')">Test</button></td>'
       + '</tr>';
   }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--mut);padding:24px">No proxy pool. Tambah di bawah.</td></tr>';
   document.getElementById('pageContent').innerHTML =
@@ -3781,36 +3910,36 @@ async function addPools(){
   var out = document.getElementById('poolAddResult');
   out.innerHTML = '<span style="color:var(--acc)">Adding '+urls.length+' proxies...</span>';
   try {
-    var r = await fetch('/admin/proxy-pools', {method:'POST',headers:hdr(),body:JSON.stringify({urls:urls,name:namePrefix})}).then(function(r){return r.json();});
+    var r = await adminFetch('/admin/proxy-pools', {method:'POST',headers:hdr(),body:JSON.stringify({urls:urls,name:namePrefix})}).then(function(r){return r.json();});
     var msg = '<span style="color:var(--ok)">Added: '+r.added+(r.skipped?', skipped '+r.skipped:'')+'</span>';
-    if(r.errors && r.errors.length) msg += '<br><span style="color:var(--err);font-size:11px">'+r.errors.slice(0,3).join('<br>')+'</span>';
+    if(r.errors && r.errors.length) msg += '<br><span style="color:var(--err);font-size:11px">'+r.errors.slice(0,3).map(function(e){return escHtml(e);}).join('<br>')+'</span>';
     out.innerHTML = msg;
     document.getElementById('poolInput').value = '';
     await loadProxyPools();
     renderProxyPools();
-  } catch(e){ out.innerHTML = '<span style="color:var(--err)">'+e.message+'</span>'; }
+  } catch(e){ out.innerHTML = '<span style="color:var(--err)">'+escHtml(e.message)+'</span>'; }
 }
 async function deleteSelectedPools(){
   var ids = Array.from(document.querySelectorAll('.pool-check:checked')).map(function(c){return c.value;});
   if(!ids.length){ toast('Select minimal 1 pool', 'warn'); return; }
   if(!(await askConfirm({message: 'DELETE '+ids.length+' proxy pool(s)? Providers linked to this pool will be un-linked automatically.', danger: true, confirmText: 'Delete'}))) return;
   try {
-    await fetch('/admin/proxy-pools/delete', {method:'POST',headers:hdr(),body:JSON.stringify({ids:ids})}).then(function(r){return r.json();});
+    await adminFetch('/admin/proxy-pools/delete', {method:'POST',headers:hdr(),body:JSON.stringify({ids:ids})}).then(function(r){return r.json();});
     await loadProxyPools();
     renderProxyPools();
   } catch(e){ toast('Error: '+e.message, 'error'); }
 }
 async function togglePool(id, enabled){
-  await fetch('/admin/proxy-pools/toggle', {method:'POST',headers:hdr(),body:JSON.stringify({id:id,enabled:enabled})});
+  await adminFetch('/admin/proxy-pools/toggle', {method:'POST',headers:hdr(),body:JSON.stringify({id:id,enabled:enabled})});
   await loadProxyPools();
 }
 async function testPool(id){
-  var r = await fetch('/admin/proxy-pools/test', {method:'POST',headers:hdr(),body:JSON.stringify({id:id})}).then(function(r){return r.json();});
+  var r = await adminFetch('/admin/proxy-pools/test', {method:'POST',headers:hdr(),body:JSON.stringify({id:id})}).then(function(r){return r.json();});
   var res = r.results && r.results[0];
   if(res && res.ok){
     toast('Pool OK\nExit IP: '+res.ip+'\nLatency: '+res.latencyMs+'ms', 'warn');
   } else {
-    toast('Pool failed\n'+((res && res.error) || 'unknown error', 'error'));
+    toast('Pool failed\n'+((res && res.error) || 'unknown error'), 'error');
   }
   await loadProxyPools();
   renderProxyPools();
@@ -3819,13 +3948,13 @@ async function testAllPools(){
   var out = document.getElementById('poolAddResult');
   out.innerHTML = '<span style="color:var(--acc)">Testing all pools...</span>';
   try {
-    var r = await fetch('/admin/proxy-pools/test', {method:'POST',headers:hdr(),body:JSON.stringify({})}).then(function(r){return r.json();});
+    var r = await adminFetch('/admin/proxy-pools/test', {method:'POST',headers:hdr(),body:JSON.stringify({})}).then(function(r){return r.json();});
     var ok = (r.results||[]).filter(function(x){return x.ok;}).length;
     var fail = (r.results||[]).length - ok;
     out.innerHTML = '<span style="color:var(--ok)">'+ok+' OK · '+fail+' failed</span>';
     await loadProxyPools();
     renderProxyPools();
-  } catch(e){ out.innerHTML = '<span style="color:var(--err)">'+e.message+'</span>'; }
+  } catch(e){ out.innerHTML = '<span style="color:var(--err)">'+escHtml(e.message)+'</span>'; }
 }
 // ============ End Proxy Pool page ============
 
@@ -3835,13 +3964,13 @@ async function testAllPools(){
 var BUDGET_DATA = null;
 async function loadBudget(){
   try {
-    var r = await fetch('/admin/budget', {headers: hdr()}).then(function(r){return r.json();});
+    var r = await adminFetch('/admin/budget', {headers: hdr()}).then(function(r){return r.json();});
     BUDGET_DATA = r.budgets || {};
   } catch(e) { BUDGET_DATA = {}; }
 }
 async function saveBudget(prefix, amount, action){
   try {
-    var r = await fetch('/admin/budget', {
+    var r = await adminFetch('/admin/budget', {
       method: 'POST', headers: hdr(),
       body: JSON.stringify({prefix: prefix, budget: amount, budgetAction: action})
     }).then(function(r){return r.json();});
@@ -3883,7 +4012,7 @@ async function renderBudget(){
       : d.pct >= 80 ? '<span class="badge" style="background:rgba(245,158,11,.12);color:var(--warn)">Near limit</span>'
       : '<span class="badge active">Healthy</span>';
     return '<div class="'+cardCls+'">'
-      + '<div class="qtitle" style="display:flex;justify-content:space-between;align-items:center"><span>'+pfx+'</span>'+status+'</div>'
+      + '<div class="qtitle" style="display:flex;justify-content:space-between;align-items:center"><span>'+escHtml(pfx)+'</span>'+status+'</div>'
       + '<div class="qsub">Action on breach: <b style="color:var(--fg)">'+(d.budgetAction||'alert')+'</b></div>'
       + (hasBudget
          ? '<div class="qbar-lg"><div class="fill '+fillCls+'" style="width:'+pct+'%;background:'+(pct>=100?'var(--err)':pct>=80?'var(--warn)':'var(--ok)')+'"></div></div>'
@@ -3893,8 +4022,8 @@ async function renderBudget(){
       + '<span style="color:var(--mut)">'+(hasBudget?('of '+fmtDec(d.budget,2)+' · '+d.pct+'% used'):'no limit')+'</span>'
       + '</div>'
       + '<div style="display:flex;gap:8px">'
-      + '<button class="btn sm primary" onclick="openBudgetModal(\''+pfx+'\')">Configure</button>'
-      + (hasBudget?'<button class="btn sm" onclick="saveBudget(\''+pfx+'\', 0, \'alert\')">Clear</button>':'')
+      + '<button class="btn sm primary" onclick="openBudgetModal(\''+escJs(pfx)+'\')">Configure</button>'
+      + (hasBudget?'<button class="btn sm" onclick="saveBudget(\''+escJs(pfx)+'\', 0, \'alert\')">Clear</button>':'')
       + '</div>'
       + '</div>';
   }).join('');
@@ -3922,8 +4051,8 @@ function openBudgetModal(prefix){
   back.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s ease-out';
   back.innerHTML =
     '<div class="modal" style="width:min(460px,100%)">'
-    + '<div class="modal-head"><h3>Configure budget — '+prefix+'</h3>'
-    + '<button class="btn sm ghost" onclick="this.closest(\'.modal-back\').remove()" aria-label="Close">✕</button></div>'
+    + '<div class="modal-head"><h3>Configure budget — '+escHtml(prefix)+'</h3>'
+    + '<button class="btn sm ghost" onclick="closeAccessibleModal(this.closest(\'.modal-back\'))" aria-label="Close">✕</button></div>'
     + '<div class="modal-body">'
     + '<div class="field"><label>Budget limit (credit units)</label>'
     + '<input type="number" id="budgetInput" min="0" step="0.01" value="'+(d.budget||0)+'" placeholder="e.g. 1000"/>'
@@ -3936,13 +4065,13 @@ function openBudgetModal(prefix){
     + '</select></div>'
     + '</div>'
     + '<div class="modal-foot">'
-    + '<button class="btn" onclick="this.closest(\'.modal-back\').remove()">Cancel</button>'
-    + '<button class="btn primary" onclick="var v=parseFloat(document.getElementById(\'budgetInput\').value)||0;var a=document.getElementById(\'budgetActionInput\').value;saveBudget(\''+prefix+'\', v, a);this.closest(\'.modal-back\').remove()">Save</button>'
+    + '<button class="btn" onclick="closeAccessibleModal(this.closest(\'.modal-back\'))">Cancel</button>'
+    + '<button class="btn primary" onclick="var v=parseFloat(document.getElementById(\'budgetInput\').value)||0;var a=document.getElementById(\'budgetActionInput\').value;saveBudget(\''+escJs(prefix)+'\', v, a);closeAccessibleModal(this.closest(\'.modal-back\'))">Save</button>'
     + '</div>'
     + '</div>';
   document.body.appendChild(back);
-  back.addEventListener('click', function(e){ if(e.target===back) back.remove(); });
-  setTimeout(function(){ var i=document.getElementById('budgetInput'); if(i) i.focus(); }, 50);
+  activateAccessibleModal(back, 'Configure Budget');
+  back.addEventListener('click', function(e){ if(e.target===back) closeAccessibleModal(back); });
 }
 
 // ============================================================
@@ -3952,7 +4081,7 @@ async function doBackup(){
   try {
     var url = '/admin/backup';
     // Trigger download with auth via fetch → blob → anchor
-    var r = await fetch(url, {headers: hdr()});
+    var r = await adminFetch(url, {headers: hdr()});
     if(!r.ok) { toast('Backup failed: HTTP '+r.status, 'error'); return; }
     var blob = await r.blob();
     var link = document.createElement('a');
@@ -3969,7 +4098,7 @@ async function doRestore(file, preview){
     var text = await file.text();
     var body = JSON.parse(text);
     if(preview){
-      var r = await fetch('/admin/restore?preview=1', {
+      var r = await adminFetch('/admin/restore?preview=1', {
         method:'POST', headers: hdr(), body: JSON.stringify(body)
       }).then(function(r){return r.json();});
       if(r.error){ toast('Preview failed: '+r.error, 'error'); return; }
@@ -3977,7 +4106,7 @@ async function doRestore(file, preview){
       if(out) out.innerHTML =
         '<div style="padding:14px;background:var(--card2);border:1px solid var(--bd);border-radius:8px;font-size:13px">'
         + '<div><b>Preview OK</b></div>'
-        + '<div style="color:var(--mut);margin-top:4px">Providers: <b style="color:var(--fg)">'+r.providers+'</b> · Exported: <b style="color:var(--fg)">'+r.exportedAt+'</b></div>'
+        + '<div style="color:var(--mut);margin-top:4px">Providers: <b style="color:var(--fg)">'+escHtml(r.providers)+'</b> · Exported: <b style="color:var(--fg)">'+escHtml(r.exportedAt)+'</b></div>'
         + '<button class="btn primary" style="margin-top:12px" onclick="doRestoreConfirm()">Apply restore</button>'
         + '</div>';
       window.__pendingRestore = body;
@@ -3992,7 +4121,7 @@ async function doRestoreConfirm(){
     danger: true, confirmText: 'Restore'
   }))) return;
   try {
-    var r = await fetch('/admin/restore', {
+    var r = await adminFetch('/admin/restore', {
       method:'POST', headers: hdr(),
       body: JSON.stringify(window.__pendingRestore)
     }).then(function(r){return r.json();});
@@ -4011,7 +4140,7 @@ function renderBackup(){
     + '<div class="split-grid">'
     + '<div class="panel"><div class="panel-head"><h2 style="display:flex;align-items:center;gap:8px">'+icon('convert',16)+' Export Config</h2></div>'
     + '<div class="panel-body">'
-    + '<p style="font-size:13px;color:var(--mut);margin-bottom:14px;line-height:1.6">Download a snapshot of all providers, keys, and stats. Save this before doing risky operations (bulk delete, provider changes, etc.)</p>'
+    + '<p style="font-size:13px;color:var(--mut);margin-bottom:14px;line-height:1.6">Download a redacted snapshot of providers, key identifiers, proxy settings, and stats. Secret key values and proxy credentials are not exported, so keep them separately for disaster recovery.</p>'
     + '<button class="btn primary" onclick="doBackup()">Download backup JSON</button>'
     + '</div></div>'
     + '<div class="panel"><div class="panel-head"><h2 style="display:flex;align-items:center;gap:8px">'+icon('convert',16)+' Restore Config</h2></div>'
@@ -4028,10 +4157,10 @@ function renderBackup(){
 function renderKeys(){
   var keys = SUM.clientKeys || [];
   var rows=keys.map(function(k){
-    return '<tr><td style="color:var(--mut);font-size:11px">'+k.id+'</td>'
-      +'<td style="font-weight:600">'+k.name+'</td>'
+    return '<tr><td style="color:var(--mut);font-size:11px">'+escHtml(k.id)+'</td>'
+      +'<td style="font-weight:600">'+escHtml(k.name)+'</td>'
       +'<td><span class="badge '+(k.enabled?'active':'disabled')+'">'+(k.enabled?'enabled':'disabled')+'</span></td>'
-      +'<td style="color:var(--mut2);font-size:11px">'+timeAgo(k.lastUsedAt)+'</td></tr>';
+      +'<td style="color:var(--mut2);font-size:11px">'+escHtml(timeAgo(k.lastUsedAt))+'</td></tr>';
   }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--mut);padding:20px">No client key</td></tr>';
   var enabledCount = keys.filter(function(k){return k.enabled}).length;
   document.getElementById('pageContent').innerHTML =
@@ -4061,15 +4190,16 @@ function renderKeys(){
     +'</div></div></div>';
 }
 
-if(KEY){
-  fetch('/admin/summary',{headers:hdr()}).then(function(r){
-    if(r.ok){
-      document.getElementById('loginScreen').classList.add('hidden');
-      document.getElementById('app').classList.remove('hidden');
-      init();
-    }
-  }).catch(function(){});
-}
+// Resume existing HttpOnly admin session (no master key in JS storage)
+adminFetch('/admin/summary',{headers:hdr()}).then(function(r){
+  if(r.ok){
+    CSRF_TOKEN = readCookie('kigw_csrf');
+    SESSION_OK = true;
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    init();
+  }
+}).catch(function(){});
 
 /* ==========================================================
  * v4.2 UI — non-invasive enhancement layer
@@ -4093,7 +4223,7 @@ if(KEY){
     var el = document.createElement('div');
     el.className = 'toast '+(kind==='success'?'ok':kind==='error'?'err':kind==='warn'?'warn':'info');
     var ico = TOAST_ICONS[kind] || TOAST_ICONS.info;
-    el.innerHTML = '<div class="ic">'+ico+'</div><div class="msg">'+String(msg).replace(/</g,'&lt;')+'</div><button class="close" aria-label="close">✕</button>';
+    el.innerHTML = '<div class="ic">'+ico+'</div><div class="msg">'+escHtml(msg)+'</div><button class="close" aria-label="close">✕</button>';
     root.appendChild(el);
     var kill = function(){ el.classList.add('out'); setTimeout(function(){ el.remove(); }, 260); };
     el.querySelector('.close').addEventListener('click', kill);
@@ -4112,19 +4242,20 @@ if(KEY){
       var m = document.createElement('div');
       m.className = 'modal';
       m.style.cssText = 'background:var(--card);border:1px solid var(--bd);border-radius:var(--radius-lg,14px);width:min(420px,100%);box-shadow:var(--shadow-xl);overflow:hidden;animation:modalIn .25s cubic-bezier(.2,.8,.3,1)';
-      m.innerHTML = '<div class="modal-head" style="padding:16px 20px;border-bottom:1px solid var(--bd)"><h3 style="font-size:15px;font-weight:600;color:var(--fg);margin:0">'+(opts.title||'Confirm action')+'</h3></div>'
-        + '<div class="modal-body" style="padding:20px;color:var(--mut);font-size:13px;line-height:1.55">'+(opts.message||'Are you sure?')+'</div>'
+      m.innerHTML = '<div class="modal-head" style="padding:16px 20px;border-bottom:1px solid var(--bd)"><h3 style="font-size:15px;font-weight:600;color:var(--fg);margin:0">'+escHtml(opts.title||'Confirm action')+'</h3></div>'
+        + '<div class="modal-body" style="padding:20px;color:var(--mut);font-size:13px;line-height:1.55;white-space:pre-wrap">'+escHtml(opts.message||'Are you sure?')+'</div>'
         + '<div class="modal-foot" style="padding:14px 20px;border-top:1px solid var(--bd);display:flex;gap:8px;justify-content:flex-end">'
-        + '<button class="btn" data-act="no">'+(opts.cancelText||'Cancel')+'</button>'
-        + '<button class="btn '+(opts.danger?'danger':'primary')+'" data-act="yes">'+(opts.confirmText||'Confirm')+'</button>'
+        + '<button class="btn" data-act="no">'+escHtml(opts.cancelText||'Cancel')+'</button>'
+        + '<button class="btn '+(opts.danger?'danger':'primary')+'" data-act="yes">'+escHtml(opts.confirmText||'Confirm')+'</button>'
         + '</div>';
       back.appendChild(m);
       document.body.appendChild(back);
-      var done = function(v){ back.remove(); resolve(v); };
+      activateAccessibleModal(back, opts.title||'Confirm action');
+      var settled = false;
+      var done = function(v){ if(settled) return; settled=true; closeAccessibleModal(back); resolve(v); };
       m.querySelector('[data-act=yes]').addEventListener('click', function(){ done(true); });
       m.querySelector('[data-act=no]').addEventListener('click', function(){ done(false); });
       back.addEventListener('click', function(e){ if(e.target===back) done(false); });
-      document.addEventListener('keydown', function esc(e){ if(e.key==='Escape'){ done(false); document.removeEventListener('keydown', esc); } });
       setTimeout(function(){ var b = m.querySelector('[data-act=yes]'); if(b) b.focus(); }, 50);
     });
   };
@@ -4230,14 +4361,9 @@ if(KEY){
     {icKey:'keys',      lbl:'Go to API Keys',       sub:'g k', run:function(){ goPage('keys'); }},
     {icKey:'convert',   lbl:'Refresh data',         sub:'r',   run:function(){ try{refreshAll();toast('Refreshed','success');}catch(e){toast(e.message,'error');} }},
     {icKey:'zap',       lbl:'Test All Providers',   sub:'test',run:function(){ try{testAllProviders();}catch(e){toast(e.message,'error');} }},
-    {icKey:'activity',  lbl:'Copy gateway key to clipboard', sub:'copy key', run:function(){
-      try{ navigator.clipboard.writeText(KEY||''); toast('Key copied','success'); }catch(e){ toast('Clipboard fail','error'); }
-    }},
     {icKey:'settings',  lbl:'Logout', sub:'logout', run:async function(){
-      if(!(await askConfirm({message: 'Logout & clear stored key?', danger: true, confirmText: 'Logout'}))) return;
-      localStorage.removeItem('kigw_key');
-      document.cookie='kigw_key=;path=/;max-age=0';
-      location.reload();
+      if(!(await askConfirm({message: 'Logout & end admin session?', danger: true, confirmText: 'Logout'}))) return;
+      await doLogout();
     }}
   ];
   var CMDK_STATE = { open:false, q:'', sel:0 };
@@ -4255,12 +4381,12 @@ if(KEY){
     if(CMDK_STATE.sel >= items.length) CMDK_STATE.sel = 0;
     listEl.innerHTML = items.length ? items.map(function(it,i){
       var iconHtml = it.icKey && typeof icon === 'function' ? icon(it.icKey, 14) : (it.ic || '');
-      return '<div class="cmdk-item '+(i===CMDK_STATE.sel?'sel':'')+'" data-i="'+i+'">'
+      return '<div class="cmdk-item '+(i===CMDK_STATE.sel?'sel':'')+'" data-i="'+i+'" role="option" aria-selected="'+(i===CMDK_STATE.sel?'true':'false')+'">'
         + '<div class="ic">'+iconHtml+'</div>'
         + '<div class="lbl">'+it.lbl+'</div>'
         + '<div class="sub">'+(it.sub||'')+'</div>'
         + '</div>';
-    }).join('') : '<div style="padding:24px;text-align:center;color:var(--mut)">No commands match “'+CMDK_STATE.q.replace(/</g,'&lt;')+'”</div>';
+    }).join('') : '<div style="padding:24px;text-align:center;color:var(--mut)">No commands match “'+escHtml(CMDK_STATE.q)+'”</div>';
     // Attach click/hover only to new items (list only, NOT full modal)
     listEl.querySelectorAll('.cmdk-item').forEach(function(el){
       el.addEventListener('mouseenter', function(){
@@ -4278,10 +4404,11 @@ if(KEY){
     if(!root) return;
     if(!CMDK_STATE.open){ root.innerHTML=''; return; }
     // Build modal ONCE per open (not per keystroke)
-    root.innerHTML = '<div class="cmdk-back" id="cmdkBack">'
-      + '<div class="cmdk" id="cmdkModal">'
-      + '<input class="cmdk-input" id="cmdkInput" placeholder="Search commands or jump to page…" autocomplete="off">'
-      + '<div class="cmdk-list" id="cmdkList"></div>'
+    root.innerHTML = '<div class="cmdk-back" id="cmdkBack" role="presentation">'
+      + '<div class="cmdk" id="cmdkModal" role="dialog" aria-modal="true" aria-labelledby="cmdkLabel">'
+      + '<label id="cmdkLabel" class="sr-only" for="cmdkInput">Search commands or jump to page</label>'
+      + '<input class="cmdk-input" id="cmdkInput" aria-controls="cmdkList" placeholder="Search commands or jump to page…" autocomplete="off">'
+      + '<div class="cmdk-list" id="cmdkList" role="listbox"></div>'
       + '<div class="cmdk-foot"><span><kbd>↑↓</kbd> nav</span><span><kbd>↵</kbd> run</span><span><kbd>Esc</kbd> close</span></div>'
       + '</div></div>';
     // Backdrop click: close ONLY if clicking backdrop itself, not modal content
@@ -4335,18 +4462,6 @@ if(KEY){
   console.log(LP,'ready — press ⌘K/CtrlK for command palette');
 })();
 </script>
-
-<div class="cmdk-overlay" id="cmdkOverlay" onclick="if(event.target===this)closeCmdk()">
-  <div class="cmdk-modal">
-    <input type="text" class="cmdk-input" id="cmdkInput" placeholder="Type a command or search..." oninput="filterCmdk(this.value)" onkeydown="handleCmdkKey(event)">
-    <div class="cmdk-results" id="cmdkResults"></div>
-    <div class="cmdk-footer">
-      <span><kbd>↑↓</kbd> navigate</span>
-      <span><kbd>↵</kbd> select</span>
-      <span><kbd>esc</kbd> close</span>
-    </div>
-  </div>
-</div>
 
 </body>
 </html>

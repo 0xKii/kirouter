@@ -8,7 +8,9 @@
 import { spawn, execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { readFileSync, existsSync } from 'fs';
+import { homedir } from 'os';
+import crypto from 'crypto';
+import { readFileSync, writeFileSync, mkdirSync, openSync, closeSync } from 'fs';
 import https from 'https';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -19,11 +21,20 @@ const GATEWAY_PATH = join(__dirname, '..', 'lib', 'gateway.mjs');
 const pkg = JSON.parse(readFileSync(PKG_PATH, 'utf8'));
 const VERSION = pkg.version;
 const PKG_NAME = pkg.name;
+const DEFAULT_PORT = 8090;
+
+function parsePort(value, source = 'port') {
+  const text = String(value ?? '').trim();
+  if (!/^[0-9]+$/.test(text)) throw new Error(`${source} must be an integer from 1 to 65535`);
+  const port = Number(text);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error(`${source} must be an integer from 1 to 65535`);
+  return port;
+}
 
 // Parse args
 const args = process.argv.slice(2);
 const flags = {
-  port: 20128,
+  port: null,
   update: false,
   version: false,
   help: false,
@@ -33,7 +44,8 @@ const flags = {
 for (let i = 0; i < args.length; i++) {
   const arg = args[i];
   if (arg === '--port' || arg === '-p') {
-    flags.port = parseInt(args[++i], 10) || 20128;
+    if (i + 1 >= args.length) { console.error('Missing value for --port'); process.exit(2); }
+    try { flags.port = parsePort(args[++i], '--port'); } catch (e) { console.error(e.message); process.exit(2); }
   } else if (arg === '--update' || arg === '-u') {
     flags.update = true;
   } else if (arg === '--version' || arg === '-v') {
@@ -43,8 +55,14 @@ for (let i = 0; i < args.length; i++) {
   } else if (arg === '--no-update-check') {
     flags.noUpdateCheck = true;
   } else if (arg.startsWith('--port=')) {
-    flags.port = parseInt(arg.split('=')[1], 10) || 20128;
+    try { flags.port = parsePort(arg.slice('--port='.length), '--port'); } catch (e) { console.error(e.message); process.exit(2); }
   }
+}
+
+if (flags.port == null) {
+  const envPort = process.env.KIGW_PORT || process.env.PORT;
+  try { flags.port = envPort ? parsePort(envPort, process.env.KIGW_PORT ? 'KIGW_PORT' : 'PORT') : DEFAULT_PORT; }
+  catch (e) { console.error(e.message); process.exit(2); }
 }
 
 // Colors
@@ -75,14 +93,14 @@ function help() {
   banner();
   console.log('Usage: kirouter [options]\n');
   console.log('Options:');
-  console.log('  -p, --port <port>     Port to run on (default: 20128)');
+  console.log('  -p, --port <port>     Port to run on (default: 8090)');
   console.log('  -u, --update          Check for updates and exit');
   console.log('  -v, --version         Show version');
   console.log('  -h, --help            Show this help');
   console.log('  --no-update-check     Skip update check on startup');
   console.log('');
   console.log('Examples:');
-  console.log('  kirouter                    # Start on port 20128');
+  console.log('  kirouter                    # Start on port 8090');
   console.log('  kirouter --port 3000        # Start on port 3000');
   console.log('  kirouter --update           # Check for updates');
   console.log('');
@@ -173,29 +191,55 @@ async function startGateway() {
   log('Press Ctrl+C to stop', c.dim);
   console.log('');
 
-  // Set env and spawn gateway
-  const env = { ...process.env, PORT: flags.port.toString(), KI_GATEWAY_VERSION: `v${VERSION}` };
-  const child = spawn('node', [GATEWAY_PATH], { env, stdio: 'inherit' });
+  // Keep mutable state outside the installed package. KIGW_* is canonical;
+  // PORT/KI_DATA_DIR remain compatibility aliases for older deployments.
+  const dataDir = process.env.KIGW_DATA_DIR || process.env.KI_DATA_DIR || join(homedir(), '.kirouter');
+  mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+  const keyPath = join(dataDir, '.gateway_key');
+  if (!process.env.KIGW_GATEWAY_KEY) {
+    try {
+      const fd = openSync(keyPath, 'wx', 0o600);
+      try { writeFileSync(fd, crypto.randomBytes(32).toString('base64url') + '\n'); }
+      finally { closeSync(fd); }
+      log(`Generated gateway key: ${keyPath}`, c.green);
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+    }
+  }
+  const port = flags.port.toString();
+  const env = {
+    ...process.env,
+    PORT: port,
+    KIGW_PORT: port,
+    KIGW_DATA_DIR: dataDir,
+    KI_GATEWAY_VERSION: `v${VERSION}`,
+  };
+  const child = spawn(process.execPath, [GATEWAY_PATH], { env, stdio: 'inherit' });
 
   child.on('error', (err) => {
     log(`Failed to start: ${err.message}`, c.red);
     process.exit(1);
   });
 
-  child.on('exit', (code) => {
-    if (code !== 0) {
-      log(`Gateway exited with code ${code}`, c.red);
-      process.exit(code);
-    }
+  let forwardingSignal = false;
+  child.on('exit', (code, signal) => {
+    if (!forwardingSignal && (code || signal)) log(`Gateway exited (${signal || `code ${code}`})`, c.red);
+    process.exitCode = code ?? (signal ? 1 : 0);
   });
 
-  // Handle Ctrl+C
-  process.on('SIGINT', () => {
+  const forwardSignal = (signal) => {
+    if (forwardingSignal) return;
+    forwardingSignal = true;
     console.log('');
     log('Shutting down...', c.dim);
-    child.kill('SIGINT');
-    setTimeout(() => process.exit(0), 1000);
-  });
+    if (child.exitCode == null && child.signalCode == null) child.kill(signal);
+    const killer = setTimeout(() => {
+      if (child.exitCode == null && child.signalCode == null) child.kill('SIGKILL');
+    }, 5000);
+    killer.unref?.();
+  };
+  process.once('SIGINT', () => forwardSignal('SIGINT'));
+  process.once('SIGTERM', () => forwardSignal('SIGTERM'));
 }
 
 // Main
