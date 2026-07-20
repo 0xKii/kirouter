@@ -1,6 +1,6 @@
 {
   "name": "@0xki/kirouter",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Multi-provider LLM gateway with unified API, dashboard, and key rotation",
   "type": "module",
   "main": "lib/gateway.mjs",

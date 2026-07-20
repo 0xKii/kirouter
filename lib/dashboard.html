@@ -191,6 +191,42 @@ body{
   font-size:11px;color:var(--mut2);font-family:var(--mono);
 }
 
+/* ============ UPDATE BANNER ============ */
+.update-banner{
+  margin:8px 12px 12px;padding:10px 12px;
+  background:var(--acc-glow);
+  border:1px solid var(--acc);
+  border-radius:var(--radius);
+  display:flex;align-items:center;gap:10px;
+  animation:fadeSlideUp .3s ease;
+}
+.update-banner-icon{
+  width:24px;height:24px;border-radius:6px;
+  background:var(--acc);color:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;flex-shrink:0;
+}
+.update-banner-body{flex:1;min-width:0}
+.update-banner-title{
+  font-size:11px;font-weight:600;color:var(--acc);
+  line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.update-banner-ver{
+  font-size:10px;color:var(--mut);font-family:var(--mono);
+  margin-top:1px;
+}
+.update-banner-btn{
+  background:var(--acc);color:var(--bg);
+  border:none;border-radius:6px;
+  padding:5px 10px;font-size:11px;font-weight:600;
+  cursor:pointer;flex-shrink:0;transition:background .15s;
+}
+.update-banner-btn:hover{background:var(--acc2)}
+@keyframes fadeSlideUp{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
 /* ============ TOPBAR ============ */
 .topbar{
   position:sticky;top:0;z-index:50;
@@ -931,7 +967,7 @@ body,.main,.sidebar,.topbar,.panel,.stat-card,.prov-card,.qcard,.modal,.btn,inpu
 <div class="sidebar" id="sidebar">
   <div class="sidebar-brand" style="display:flex;align-items:center;gap:12px">
     <div class="logo" style="background:transparent;color:var(--acc);width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 48 48" width="30" height="30" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:var(--acc);display:block"><path d="M22 8 L8 24 L22 40 Z" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M26 8 L40 24 L26 40 Z" fill="currentColor" opacity="0.9"/><circle cx="24" cy="24" r="2.6" fill="var(--bg)" stroke="currentColor" stroke-width="2"/></svg></div>
-    <div style="display:flex;flex-direction:column;justify-content:center"><div class="title" style="font-size:16px;font-weight:800;line-height:1.2">KiRouter</div><div class="sub" id="sbVersion" style="font-size:11px;color:var(--mut);margin-top:2px;line-height:1.2">v1.0.4</div></div>
+    <div style="display:flex;flex-direction:column;justify-content:center"><div class="title" style="font-size:16px;font-weight:800;line-height:1.2">KiRouter</div><div class="sub" id="sbVersion" style="font-size:11px;color:var(--mut);margin-top:2px;line-height:1.2">v1.0.5</div></div>
   </div>
   <nav class="nav">
     <div class="nav-section">Dashboard</div>
@@ -950,6 +986,14 @@ body,.main,.sidebar,.topbar,.panel,.stat-card,.prov-card,.qcard,.modal,.btn,inpu
     <a class="nav-item" data-page="keys" onclick="goPage('keys')"><span class="ic" data-icon="keys"></span> API Keys</a>
     <a class="nav-item" data-page="backup" onclick="goPage('backup')"><span class="ic" data-icon="convert"></span> Backup</a>
   </nav>
+  <div id="updateBanner" class="update-banner" style="display:none">
+    <div class="update-banner-icon">↑</div>
+    <div class="update-banner-body">
+      <div class="update-banner-title">New version available</div>
+      <div class="update-banner-ver" id="updateVer"></div>
+    </div>
+    <button class="update-banner-btn" onclick="copyUpdateCmd()">Update</button>
+  </div>
 
 </div>
 <div class="main">
@@ -1366,13 +1410,39 @@ async function doLogout(){
 async function init(){
   try{
     const h = await fetch('/health').then(r=>r.json());
-    // sbVersion removed — footer cleaned
-    // sidebar foot removed per user request
+    // Update sidebar version
+    var sbV=document.getElementById('sbVersion'); if(sbV && h.version) sbV.textContent=h.version;
     await refreshAll({force:true});
     setInterval(function(){ refreshAll({auto:true}); }, 30000);
     // Real-time stats via SSE — auto-reconnect with backoff on drop
     startSSE();
+    // Check for npm updates (cached 1h on backend)
+    checkForUpdate();
+    setInterval(checkForUpdate, 3600000); // re-check every hour
   }catch(e){ console.error(e); }
+}
+
+// ============================================================
+// Update check — fetch latest version from npm via gateway
+// ============================================================
+var UPDATE_CMD='npm i -g @0xki/kirouter@latest';
+async function checkForUpdate(){
+  try{
+    var r=await fetch('/admin/update-check',{headers:hdr()}).then(function(r){return r.json()});
+    if(r.updateAvailable && r.latest){
+      var el=document.getElementById('updateBanner');
+      document.getElementById('updateVer').textContent=r.current+' → '+r.latest;
+      el.style.display='flex';
+      UPDATE_CMD='npm i -g @0xki/kirouter@'+r.latest;
+    }
+  }catch(e){ /* silent fail */ }
+}
+function copyUpdateCmd(){
+  navigator.clipboard.writeText(UPDATE_CMD).then(function(){
+    toast('Update command copied: '+UPDATE_CMD,'success');
+  }).catch(function(){
+    toast(UPDATE_CMD,'info');
+  });
 }
 
 // ============================================================
