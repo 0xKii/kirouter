@@ -1004,7 +1004,6 @@ body,.main,.sidebar,.topbar,.panel,.stat-card,.prov-card,.qcard,.modal,.btn,inpu
     <span class="kbd-hint" onclick="openCmdK()" style="cursor:pointer" title="Command palette"><kbd>⌘</kbd><kbd>K</kbd></span>
     <span class="pill ok" id="statusPill"><span class="dot ok"></span> Online</span>
     <span class="pill ok" id="liveBadge" role="status" aria-live="polite"><span class="dot ok"></span> Live</span>
-    <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle theme (Cmd+Shift+L)"><span data-icon="moon" data-size="16"></span></button>
     <button class="btn sm" onclick="refreshAll()"><span data-icon="refresh" data-size="14" style="margin-right:4px"></span>Refresh</button>
   </div>
   <div class="content" id="pageContent"></div>
@@ -1021,18 +1020,9 @@ function applyTheme(theme){
     var src = img.src;
     if(src) img.src = src; // force reload
   });
-  var btn = document.getElementById('themeToggleBtn');
-  // Guard: window.icon may not be defined yet on first initTheme call
-  if(btn){
-    if(typeof window.icon === 'function'){
-      btn.innerHTML = theme === 'light' ? window.icon('sun', 16) : window.icon('moon', 16);
-    } else {
-      btn.textContent = theme === 'light' ? '☀️' : '🌙';
-    }
-  }
   try { localStorage.setItem('kigw_theme', theme); } catch(e){}
 }
-// Re-run applyTheme after all scripts loaded so SVG icon takes over from emoji fallback
+// Re-run applyTheme after all scripts loaded so theme is consistent
 if(document.readyState === 'loading'){
   document.addEventListener('DOMContentLoaded', function(){
     var saved;
@@ -1059,7 +1049,7 @@ function toggleTheme(){
   }
   applyTheme(saved);
 })();
-// Cmd+Shift+L (or Ctrl+Shift+L) shortcut
+// Cmd+Shift+L (or Ctrl+Shift+L) shortcut still works; primary control is Settings → Appearance
 document.addEventListener('keydown', function(ev){
   if((ev.metaKey||ev.ctrlKey) && ev.shiftKey && (ev.key==='l'||ev.key==='L')){
     ev.preventDefault(); toggleTheme();
