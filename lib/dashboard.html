@@ -1523,11 +1523,15 @@ var UPDATE_CMD='npm i -g @0xki/kirouter@latest';
 async function checkForUpdate(){
   try{
     var r=await fetch('/admin/update-check',{headers:hdr()}).then(function(r){return r.json()});
-    if(r.updateAvailable && r.latest){
-      var el=document.getElementById('updateBanner');
-      document.getElementById('updateVer').textContent=r.current+' → '+r.latest;
+    var el=document.getElementById('updateBanner');
+    if(!el) return;
+    // Only show when npm is strictly newer. Hide when equal / local-ahead (dev) / error.
+    if(r && r.updateAvailable && r.latest){
+      document.getElementById('updateVer').textContent=(r.current||'?')+' → '+r.latest;
       el.style.display='flex';
       UPDATE_CMD='npm i -g @0xki/kirouter@'+r.latest;
+    } else {
+      el.style.display='none';
     }
   }catch(e){ /* silent fail */ }
 }
