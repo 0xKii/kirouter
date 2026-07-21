@@ -955,9 +955,9 @@ body,.main,.sidebar,.topbar,.panel,.stat-card,.prov-card,.qcard,.modal,.btn,inpu
   <div class="login-card">
     <div style="margin:0 auto 22px;display:flex;align-items:center;justify-content:center;color:var(--acc)"><svg viewBox="0 0 48 48" width="56" height="56" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:var(--acc);display:block"><path d="M22 8 L8 24 L22 40 Z" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M26 8 L40 24 L26 40 Z" fill="currentColor" opacity="0.9"/><circle cx="24" cy="24" r="2.6" fill="var(--bg)" stroke="currentColor" stroke-width="2"/></svg></div>
     <h2 style="font:800 28px/1.2 var(--sans);letter-spacing:-.04em;margin-bottom:8px;color:var(--fg)">KiRouter</h2>
-    <p style="font-size:13px;color:var(--mut);margin-bottom:22px">Enter gateway key to access dashboard.</p>
+    <p style="font-size:13px;color:var(--mut);margin-bottom:22px" data-i18n="login.subtitle">Enter gateway key to access dashboard.</p>
     <input type="password" id="keyInput" placeholder="kigw_xxxxx..." style="width:100%;margin-bottom:14px;font-family:var(--mono)" onkeydown="if(event.key==='Enter')doLogin()">
-    <button class="btn primary" style="width:100%;justify-content:center;padding:11px" onclick="doLogin()">Sign in →</button>
+    <button class="btn primary" style="width:100%;justify-content:center;padding:11px" onclick="doLogin()" data-i18n="login.submit">Sign in →</button>
     <p id="loginErr" style="color:var(--err);font-size:12px;margin-top:12px"></p>
     <p style="font-size:10px;color:var(--mut2);margin-top:18px;text-align:center;font-family:var(--mono)">KiRouter • Multi-Provider LLM Gateway</p>
   </div>
@@ -967,24 +967,25 @@ body,.main,.sidebar,.topbar,.panel,.stat-card,.prov-card,.qcard,.modal,.btn,inpu
 <div class="sidebar" id="sidebar">
   <div class="sidebar-brand" style="display:flex;align-items:center;gap:12px">
     <div class="logo" style="background:transparent;color:var(--acc);width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 48 48" width="30" height="30" fill="none" xmlns="http://www.w3.org/2000/svg" style="color:var(--acc);display:block"><path d="M22 8 L8 24 L22 40 Z" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M26 8 L40 24 L26 40 Z" fill="currentColor" opacity="0.9"/><circle cx="24" cy="24" r="2.6" fill="var(--bg)" stroke="currentColor" stroke-width="2"/></svg></div>
-    <div style="display:flex;flex-direction:column;justify-content:center"><div class="title" style="font-size:16px;font-weight:800;line-height:1.2">KiRouter</div><div class="sub" id="sbVersion" style="font-size:11px;color:var(--mut);margin-top:2px;line-height:1.2">v1.0.5</div></div>
+    <div style="display:flex;flex-direction:column;justify-content:center"><div class="title" style="font-size:16px;font-weight:800;line-height:1.2">KiRouter</div><div class="sub" id="sbVersion" style="font-size:11px;color:var(--mut);margin-top:2px;line-height:1.2">v1.0.6</div></div>
   </div>
   <nav class="nav">
-    <div class="nav-section">Dashboard</div>
-    <a class="nav-item active" data-page="overview" onclick="goPage('overview')"><span class="ic" data-icon="overview"></span> Overview</a>
-    <a class="nav-item" data-page="accounts" onclick="goPage('accounts')"><span class="ic" data-icon="accounts"></span> Accounts</a>
-    <a class="nav-item" data-page="quota" onclick="goPage('quota')"><span class="ic" data-icon="quota"></span> Quota Tracker</a>
-    <a class="nav-item" data-page="usage" onclick="goPage('usage')"><span class="ic" data-icon="usage"></span> Usage</a>
-    <a class="nav-item" data-page="budget" onclick="goPage('budget')"><span class="ic" data-icon="database"></span> Budget</a>
-    <div class="nav-section">Tools</div>
-    <a class="nav-item" data-page="chat" onclick="goPage('chat')"><span class="ic" data-icon="chat"></span> Test Chat</a>
-    <a class="nav-item" data-page="convert" onclick="goPage('convert')"><span class="ic" data-icon="convert"></span> Convert</a>
-    <div class="nav-section">System</div>
-    <a class="nav-item" data-page="providers" onclick="goPage('providers')"><span class="ic" data-icon="providers"></span> Providers</a>
-    <a class="nav-item" data-page="proxypools" onclick="goPage('proxypools')"><span class="ic" data-icon="proxy"></span> Proxy Pools</a>
-    <a class="nav-item" data-page="models" onclick="goPage('models')"><span class="ic" data-icon="models"></span> Models</a>
-    <a class="nav-item" data-page="keys" onclick="goPage('keys')"><span class="ic" data-icon="keys"></span> API Keys</a>
-    <a class="nav-item" data-page="backup" onclick="goPage('backup')"><span class="ic" data-icon="convert"></span> Backup</a>
+    <div class="nav-section" data-i18n="nav.section.dashboard">Dashboard</div>
+    <a class="nav-item active" data-page="overview" onclick="goPage('overview')"><span class="ic" data-icon="overview"></span> <span data-i18n="nav.overview">Overview</span></a>
+    <a class="nav-item" data-page="accounts" onclick="goPage('accounts')"><span class="ic" data-icon="accounts"></span> <span data-i18n="nav.accounts">Accounts</span></a>
+    <a class="nav-item" data-page="quota" onclick="goPage('quota')"><span class="ic" data-icon="quota"></span> <span data-i18n="nav.quota">Quota Tracker</span></a>
+    <a class="nav-item" data-page="usage" onclick="goPage('usage')"><span class="ic" data-icon="usage"></span> <span data-i18n="nav.usage">Usage</span></a>
+    <a class="nav-item" data-page="budget" onclick="goPage('budget')"><span class="ic" data-icon="database"></span> <span data-i18n="nav.budget">Budget</span></a>
+    <div class="nav-section" data-i18n="nav.section.tools">Tools</div>
+    <a class="nav-item" data-page="chat" onclick="goPage('chat')"><span class="ic" data-icon="chat"></span> <span data-i18n="nav.chat">Test Chat</span></a>
+    <a class="nav-item" data-page="convert" onclick="goPage('convert')"><span class="ic" data-icon="convert"></span> <span data-i18n="nav.convert">Convert</span></a>
+    <div class="nav-section" data-i18n="nav.section.system">System</div>
+    <a class="nav-item" data-page="providers" onclick="goPage('providers')"><span class="ic" data-icon="providers"></span> <span data-i18n="nav.providers">Providers</span></a>
+    <a class="nav-item" data-page="proxypools" onclick="goPage('proxypools')"><span class="ic" data-icon="proxy"></span> <span data-i18n="nav.proxypools">Proxy Pools</span></a>
+    <a class="nav-item" data-page="models" onclick="goPage('models')"><span class="ic" data-icon="models"></span> <span data-i18n="nav.models">Models</span></a>
+    <a class="nav-item" data-page="keys" onclick="goPage('keys')"><span class="ic" data-icon="keys"></span> <span data-i18n="nav.keys">API Keys</span></a>
+    <a class="nav-item" data-page="backup" onclick="goPage('backup')"><span class="ic" data-icon="convert"></span> <span data-i18n="nav.backup">Backup</span></a>
+    <a class="nav-item" data-page="settings" onclick="goPage('settings')"><span class="ic" data-icon="settings"></span> <span data-i18n="nav.settings">Settings</span></a>
   </nav>
   <div id="updateBanner" class="update-banner" style="display:none">
     <div class="update-banner-icon">↑</div>
@@ -1066,6 +1067,99 @@ document.addEventListener('keydown', function(ev){
 });
 // ============ End theme system ============
 
+// ============ i18n (ID / EN) ============
+var I18N = {
+  en: {
+    'nav.section.dashboard':'Dashboard','nav.section.tools':'Tools','nav.section.system':'System',
+    'nav.overview':'Overview','nav.accounts':'Accounts','nav.quota':'Quota Tracker','nav.usage':'Usage','nav.budget':'Budget',
+    'nav.chat':'Test Chat','nav.convert':'Convert','nav.providers':'Providers','nav.proxypools':'Proxy Pools','nav.models':'Models',
+    'nav.keys':'API Keys','nav.backup':'Backup','nav.settings':'Settings',
+    'login.subtitle':'Enter gateway key to access dashboard.','login.submit':'Sign in →',
+    'page.overview':'Overview','page.accounts':'Accounts','page.quota':'Quota Tracker','page.usage':'Usage','page.budget':'Budget & Cost',
+    'page.chat':'Test Chat','page.convert':'Convert Web to Build','page.providers':'Providers','page.models':'Models',
+    'page.proxypools':'Proxy Pools','page.egress':'Grok Egress Proxies','page.keys':'API Keys','page.backup':'Backup & Restore','page.settings':'Settings',
+    'settings.title':'Settings','settings.subtitle':'Language, appearance, session, and gateway maintenance.',
+    'settings.language':'Language','settings.language.desc':'Dashboard UI language only. Does not change model replies.',
+    'settings.theme':'Appearance','settings.theme.desc':'Color theme for the dashboard.',
+    'settings.theme.dark':'Dark','settings.theme.light':'Light',
+    'settings.info':'Gateway info','settings.info.desc':'Runtime snapshot. Version stays in the sidebar brand.',
+    'settings.session':'Session','settings.session.desc':'Logout ends this browser session. Clear local data removes preferences stored in this browser.',
+    'settings.logout':'Logout','settings.clearLocal':'Clear local data',
+    'settings.logs':'Request log retention','settings.logs.desc':'Purge old request history from SQLite to keep the database small.',
+    'settings.purge7':'Purge > 7 days','settings.purge30':'Purge > 30 days','settings.purgeAll':'Purge all logs',
+    'settings.health':'Provider key health','settings.health.desc':'Reset exhausted/error/cooldown flags on all provider keys without deleting the keys.',
+    'settings.resetHealth':'Reset all key health',
+    'settings.danger':'Danger zone','settings.danger.desc':'Rotate the dashboard admin gateway key. Old key and all sessions become invalid immediately.',
+    'settings.rotateKey':'Reset gateway key','settings.copyKey':'Copy key','settings.keyOnce':'Copy this key now — it will not be shown again.',
+    'settings.envManaged':'Gateway key is managed by KIGW_GATEWAY_KEY env and cannot be rotated from the dashboard.',
+    'common.refresh':'Refresh','common.cancel':'Cancel'
+  },
+  id: {
+    'nav.section.dashboard':'Dashboard','nav.section.tools':'Tools','nav.section.system':'Sistem',
+    'nav.overview':'Overview','nav.accounts':'Akun','nav.quota':'Quota Tracker','nav.usage':'Usage','nav.budget':'Budget',
+    'nav.chat':'Test Chat','nav.convert':'Convert','nav.providers':'Providers','nav.proxypools':'Proxy Pools','nav.models':'Models',
+    'nav.keys':'API Keys','nav.backup':'Backup','nav.settings':'Pengaturan',
+    'login.subtitle':'Masukkan gateway key untuk akses dashboard.','login.submit':'Masuk →',
+    'page.overview':'Overview','page.accounts':'Akun','page.quota':'Quota Tracker','page.usage':'Usage','page.budget':'Budget & Biaya',
+    'page.chat':'Test Chat','page.convert':'Convert Web ke Build','page.providers':'Providers','page.models':'Models',
+    'page.proxypools':'Proxy Pools','page.egress':'Grok Egress Proxies','page.keys':'API Keys','page.backup':'Backup & Restore','page.settings':'Pengaturan',
+    'settings.title':'Pengaturan','settings.subtitle':'Bahasa, tampilan, sesi, dan maintenance gateway.',
+    'settings.language':'Bahasa','settings.language.desc':'Hanya bahasa UI dashboard. Tidak mengubah balasan model.',
+    'settings.theme':'Tampilan','settings.theme.desc':'Tema warna dashboard.',
+    'settings.theme.dark':'Gelap','settings.theme.light':'Terang',
+    'settings.info':'Info gateway','settings.info.desc':'Snapshot runtime. Versi tetap di brand sidebar.',
+    'settings.session':'Sesi','settings.session.desc':'Logout mengakhiri sesi browser ini. Clear local data menghapus preferensi di browser ini.',
+    'settings.logout':'Logout','settings.clearLocal':'Hapus data lokal',
+    'settings.logs':'Retensi request log','settings.logs.desc':'Hapus history request lama dari SQLite agar database tetap ramping.',
+    'settings.purge7':'Hapus > 7 hari','settings.purge30':'Hapus > 30 hari','settings.purgeAll':'Hapus semua log',
+    'settings.health':'Kesehatan key provider','settings.health.desc':'Reset flag exhausted/error/cooldown semua provider key tanpa menghapus key-nya.',
+    'settings.resetHealth':'Reset semua key health',
+    'settings.danger':'Zona berbahaya','settings.danger.desc':'Rotate gateway key admin dashboard. Key lama dan semua sesi langsung invalid.',
+    'settings.rotateKey':'Reset gateway key','settings.copyKey':'Salin key','settings.keyOnce':'Salin key ini sekarang — tidak akan ditampilkan lagi.',
+    'settings.envManaged':'Gateway key dikelola lewat env KIGW_GATEWAY_KEY dan tidak bisa di-rotate dari dashboard.',
+    'common.refresh':'Refresh','common.cancel':'Batal'
+  }
+};
+var LANG = (function(){ try { return localStorage.getItem('kigw_lang') || 'en'; } catch(e){ return 'en'; } })();
+if(LANG !== 'id' && LANG !== 'en') LANG = 'en';
+function t(key, fallback){
+  var pack = I18N[LANG] || I18N.en;
+  if(pack[key] != null) return pack[key];
+  if(I18N.en[key] != null) return I18N.en[key];
+  return fallback != null ? fallback : key;
+}
+function setLang(lang){
+  LANG = (lang === 'id') ? 'id' : 'en';
+  try { localStorage.setItem('kigw_lang', LANG); } catch(e){}
+  applyI18n();
+  if(typeof CUR_PAGE !== 'undefined' && CUR_PAGE){
+    try {
+      var titles = pageTitles();
+      var el = document.getElementById('pageTitle');
+      if(el) el.textContent = titles[CUR_PAGE] || CUR_PAGE;
+    } catch(e){}
+    try { renderPage(); } catch(e){}
+  }
+}
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(function(el){
+    var key = el.getAttribute('data-i18n');
+    if(!key) return;
+    el.textContent = t(key, el.textContent);
+  });
+  document.documentElement.setAttribute('lang', LANG === 'id' ? 'id' : 'en');
+}
+function pageTitles(){
+  return {
+    overview:t('page.overview'), accounts:t('page.accounts'), quota:t('page.quota'), usage:t('page.usage'),
+    budget:t('page.budget'), chat:t('page.chat'), convert:t('page.convert'), providers:t('page.providers'),
+    models:t('page.models'), proxypools:t('page.proxypools'), egress:t('page.egress'), keys:t('page.keys'),
+    backup:t('page.backup'), settings:t('page.settings')
+  };
+}
+// Apply static chrome i18n ASAP
+try { applyI18n(); } catch(e){}
+// ============ End i18n ============
 
 // ============ Icon System (Lucide-style inline SVG) ============
 window.KI_ICONS = {
@@ -1651,17 +1745,18 @@ function goPage(p){
   if(CUR_TAB==='gateway') CUR_TAB='all';
   CUR_PAGE = p;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===p));
-  const titles={overview:'Overview',accounts:'Accounts',quota:'Quota Tracker',usage:'Usage',budget:'Budget & Cost',chat:'Test Chat',convert:'Convert Web to Build',providers:'Providers',models:'Models',proxypools:'Proxy Pools',egress:'Grok Egress Proxies',keys:'API Keys',backup:'Backup & Restore'};
+  const titles = pageTitles();
   document.getElementById('pageTitle').textContent = titles[p]||p;
   document.getElementById('sidebar').classList.remove('open');
   if(p==='egress' && !EGRESS){ loadEgress().then(()=>renderEgress()); return; }
+  if(p==='settings'){ renderSettings(); return; }
   renderPage();
 }
 function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); }
 
 function renderPage(){
-  if(!SUM) return;
-  const pages={overview:renderOverview,accounts:renderAccounts,quota:renderQuotaTracker,usage:renderUsage,budget:renderBudget,chat:renderChat,convert:renderConvert,providers:renderProviders,models:renderModels,proxypools:renderProxyPools,egress:renderEgress,keys:renderKeys,backup:renderBackup};
+  if(!SUM && CUR_PAGE !== 'settings') return;
+  const pages={overview:renderOverview,accounts:renderAccounts,quota:renderQuotaTracker,usage:renderUsage,budget:renderBudget,chat:renderChat,convert:renderConvert,providers:renderProviders,models:renderModels,proxypools:renderProxyPools,egress:renderEgress,keys:renderKeys,backup:renderBackup,settings:renderSettings};
   (pages[CUR_PAGE]||renderOverview)();
 }
 
@@ -2387,7 +2482,11 @@ async function acctPurgeBad(){
       +' | build '+(b.build||0)
       +' | console '+(b.console||0)
       +' | web '+(b.web||0);
-    if(!(await askConfirm({message: 'Purge '+total+' bad accounts?\n'+detail+'\n\nThis is permanent. Continue?', danger: true, confirmText: 'Purge'}))){
+    var cascadeTotal=prev.cascadeTotal||0;
+    var confirmMsg='Purge '+total+' bad accounts?\n'+detail
+      +(cascadeTotal?'\n\n+ Cascade: '+cascadeTotal+' grok_web accounts linked to purged builds will ALSO be deleted (to keep pending-convert clean).':'')
+      +'\n\nThis is permanent. Continue?';
+    if(!(await askConfirm({message: confirmMsg, danger: true, confirmText: 'Purge'}))){
       out.innerHTML='<span style="color:var(--mut)">Purge dibatalkan ('+total+' bad)</span>';
       return;
     }
@@ -2396,7 +2495,7 @@ async function acctPurgeBad(){
     if(r.error){
       out.innerHTML='<span style="color:var(--err)">Error: '+escHtml(r.error)+'</span>';
     } else {
-      out.innerHTML='<span style="color:var(--ok)">Purged: '+r.purged+' deleted, '+r.failed+' failed ('+r.total+' bad)</span>';
+      out.innerHTML='<span style="color:var(--ok)">Purged: '+r.purged+' deleted, '+r.failed+' failed ('+r.total+' bad)'+(r.cascadeTotal?' • Cascade: '+r.cascaded+' web accounts (linked to purged builds) also deleted'+(r.cascadeFailed?', '+r.cascadeFailed+' failed':''):'')+'</span>';
       await refreshAll();
     }
   }catch(e){
@@ -3047,6 +3146,8 @@ function renderConvert(){
     + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'
     + '<button class="btn primary" id="convAllBtn" onclick="doConvertAll()"'+(pending.length===0?' disabled':'')+'>Convert All Pending ('+pending.length+')</button>'
     + '<button class="btn" id="convSelBtn" onclick="doConvertSelected()">Convert Selected</button>'
+    + '<button class="btn" id="convDelSelBtn" onclick="doDeleteSelectedPending()" style="color:var(--warn);border-color:var(--warn)">Delete Selected</button>'
+    + '<button class="btn" id="convDelAllBtn" onclick="doDeleteAllPending()"'+(pending.length===0?' disabled':'')+' style="color:var(--err);border-color:var(--err)">Delete All Pending</button>'
     + '</div>'
     + '<div id="convProgress" style="margin-bottom:14px"></div>'
     + (pending.length===0
@@ -3093,6 +3194,36 @@ async function runConvert(body, count){
   }catch(e){
     p.innerHTML='<div style="padding:12px;background:var(--bg2);border-radius:10px;border:1px solid var(--err)"><span style="color:var(--err)">Error: '+escHtml(e.message)+'</span></div>';
     if(a1)a1.disabled=false;if(a2)a2.disabled=false;
+  }
+}
+
+async function doDeleteSelectedPending(){
+  var ids=Array.from(document.querySelectorAll('.conv-check:checked')).map(function(c){return parseInt(c.value)});
+  if(!ids.length){toast('Select at least 1 account to delete', 'warn');return;}
+  if(!(await askConfirm({message: 'Delete '+ids.length+' selected pending Web account(s)?\n\nThis is permanent and will remove them from the pool entirely (not just skip conversion).', danger:true, confirmText: 'Delete'}))) return;
+  await runDeletePending(ids);
+}
+async function doDeleteAllPending(){
+  var pending=(ACCS||[]).filter(function(a){return a.provider==='grok_web' && !(a.linkedProvider==='grok_build' && a.linkedAccountId)});
+  if(!pending.length){toast('No pending accounts to delete', 'warn');return;}
+  if(!(await askConfirm({message: 'Delete ALL '+pending.length+' pending Web accounts?\n\nThis is permanent. Use this when the pending list is full of unusable accounts you don\'t want to convert.', danger:true, confirmText: 'Delete All'}))) return;
+  await runDeletePending(pending.map(function(a){return a.id}));
+}
+async function runDeletePending(ids){
+  var p=document.getElementById('convProgress');
+  var a1=document.getElementById('convAllBtn'),a2=document.getElementById('convSelBtn'),a3=document.getElementById('convDelSelBtn'),a4=document.getElementById('convDelAllBtn');
+  [a1,a2,a3,a4].forEach(function(b){if(b)b.disabled=true;});
+  p.innerHTML='<div style="padding:12px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)"><span style="color:var(--warn)">Deleting '+ids.length+' account(s)…</span></div>';
+  try{
+    var r=await adminFetch('/admin/accounts/delete',{method:'POST',headers:hdr(),body:JSON.stringify({ids:ids})}).then(function(r){return r.json()});
+    var deleted=r.deleted||0, failed=r.failed||0;
+    p.innerHTML='<div style="padding:12px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd)">'
+      +'<div style="color:var(--ok);font-weight:600;margin-bottom:6px">Delete complete!</div>'
+      +'<div style="font-size:13px">Deleted: <b>'+deleted+'</b>'+(failed>0?' · <span style="color:var(--err)">Failed: '+failed+'</span>':'')+'</div></div>';
+    setTimeout(refreshAll,1500);
+  }catch(e){
+    p.innerHTML='<div style="padding:12px;background:var(--bg2);border-radius:10px;border:1px solid var(--err)"><span style="color:var(--err)">Error: '+escHtml(e.message)+'</span></div>';
+    [a1,a2,a3,a4].forEach(function(b){if(b)b.disabled=false;});
   }
 }
 
@@ -3336,7 +3467,7 @@ function renderProvModal(){
     +'<div class="field"><label>Display Name</label><input id="pvName" type="text" value="'+escAttr(conn&&conn.name||cat.name||'')+'" placeholder="Provider name"></div>'
     +'</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
-    +'<div class="field"><label>Type</label><select id="pvType"><option value="openai"'+(typ==='openai'?' selected':'')+'>OpenAI Compatible</option><option value="codebuddy"'+(typ==='codebuddy'?' selected':'')+'>CodeBuddy Native</option></select></div>'
+    +'<div class="field"><label>Type</label><select id="pvType"><option value="openai"'+(typ==='openai'?' selected':'')+'>OpenAI Compatible</option><option value="anthropic"'+(typ==='anthropic'?' selected':'')+'>Anthropic Compatible</option><option value="codebuddy"'+(typ==='codebuddy'?' selected':'')+'>CodeBuddy Native</option></select></div>'
     +'<div class="field"><label>Base URL *</label><input id="pvBase" type="text" value="'+escAttr(base)+'" placeholder="https://api.openai.com/v1"></div>'
     +'</div>'
     +'<div class="field" id="singleKeyBox"><label>API Key '+(mode==='manage'?'(optional add)':'*')+'</label><input id="pvKey" type="password" placeholder="'+(keyCount?'kosong = keep existing':'sk-... / ck_...')+'"></div>'
@@ -4224,6 +4355,243 @@ function renderBackup(){
     + '</div>';
 }
 
+// ============================================================
+// Settings page
+// ============================================================
+var SETTINGS_INFO = null;
+var SETTINGS_NEW_KEY = '';
+
+function fmtUptime(sec){
+  sec = Math.max(0, Number(sec) || 0);
+  var d = Math.floor(sec / 86400); sec %= 86400;
+  var h = Math.floor(sec / 3600); sec %= 3600;
+  var m = Math.floor(sec / 60); var s = sec % 60;
+  if(d) return d+'d '+h+'h '+m+'m';
+  if(h) return h+'h '+m+'m';
+  if(m) return m+'m '+s+'s';
+  return s+'s';
+}
+
+async function loadSettingsInfo(){
+  try {
+    SETTINGS_INFO = await adminFetch('/admin/settings/info', {headers: hdr()}).then(function(r){return r.json();});
+  } catch(e) {
+    SETTINGS_INFO = { error: e.message };
+  }
+  return SETTINGS_INFO;
+}
+
+function clearLocalDashboardData(){
+  var keys = [];
+  try {
+    for(var i=0;i<localStorage.length;i++){
+      var k = localStorage.key(i);
+      if(k && k.indexOf('kigw_')===0) keys.push(k);
+    }
+    keys.forEach(function(k){ localStorage.removeItem(k); });
+  } catch(e){}
+  SETTINGS_NEW_KEY = '';
+  LANG = 'en';
+  try { applyTheme('dark'); } catch(e){}
+  try { applyI18n(); } catch(e){}
+  toast(LANG==='id' ? 'Data lokal dibersihkan' : 'Local data cleared', 'success');
+  renderSettings();
+}
+
+async function confirmClearLocalDashboardData(){
+  var msg = LANG==='id' ? 'Hapus preferensi lokal di browser ini?' : 'Clear local preferences in this browser?';
+  if(!(await askConfirm({ message: msg, danger: false, confirmText: t('settings.clearLocal') }))) return;
+  clearLocalDashboardData();
+}
+
+async function doPurgeRequestLogs(mode){
+  var body = {};
+  var label = mode;
+  if(mode === 'all') body = { all: true };
+  else if(mode === 7 || mode === 30) body = { olderThanDays: mode };
+  else return;
+  var msg = mode === 'all'
+    ? (LANG==='id' ? 'Hapus SEMUA request log? History Usage akan kosong.' : 'Delete ALL request logs? Usage history will be empty.')
+    : (LANG==='id' ? ('Hapus request log lebih dari '+mode+' hari?') : ('Delete request logs older than '+mode+' days?'));
+  if(!(await askConfirm({ message: msg, danger: true, confirmText: mode==='all' ? t('settings.purgeAll') : 'Purge' }))) return;
+  try {
+    var r = await adminFetch('/admin/request-log/purge', { method:'POST', headers: hdr(), body: JSON.stringify(body) }).then(function(r){return r.json();});
+    if(r.error){ toast(r.error, 'error'); return; }
+    toast((LANG==='id'?'Terhapus: ':'Deleted: ')+(r.deleted||0), 'success');
+    await loadSettingsInfo();
+    renderSettings();
+  } catch(e){ toast(e.message, 'error'); }
+}
+
+async function doResetAllKeyHealth(){
+  if(!(await askConfirm({
+    message: LANG==='id'
+      ? 'Reset status health semua provider key (exhausted/error/cooldown → unknown)?'
+      : 'Reset health status for all provider keys (exhausted/error/cooldown → unknown)?',
+    danger: false,
+    confirmText: t('settings.resetHealth')
+  }))) return;
+  try {
+    var r = await adminFetch('/admin/providers/keys/reset-all-health', { method:'POST', headers: hdr(), body: '{}' }).then(function(r){return r.json();});
+    if(r.error){ toast(r.error, 'error'); return; }
+    toast((LANG==='id'?'Key di-reset: ':'Keys reset: ')+(r.reset||0), 'success');
+    try { await refreshAll({force:true}); } catch(e){}
+  } catch(e){ toast(e.message, 'error'); }
+}
+
+async function doRotateGatewayKey(){
+  if(!(await askConfirm({
+    title: t('settings.rotateKey'),
+    message: LANG==='id'
+      ? 'Reset gateway key admin?\n\n• Key lama langsung invalid\n• Semua sesi dashboard di-logout\n• Key baru ditampilkan SEKALI — salin dulu\n\nLanjut?'
+      : 'Reset admin gateway key?\n\n• Old key becomes invalid immediately\n• All dashboard sessions are logged out\n• New key is shown ONCE — copy it now\n\nContinue?',
+    danger: true,
+    confirmText: t('settings.rotateKey')
+  }))) return;
+  try {
+    var r = await adminFetch('/admin/gateway-key/rotate', { method:'POST', headers: hdr(), body: '{}' }).then(function(r){return r.json();});
+    if(r.error){
+      toast(r.error, 'error');
+      if(r.code === 'env_managed'){
+        SETTINGS_NEW_KEY = '';
+        renderSettings();
+      }
+      return;
+    }
+    SETTINGS_NEW_KEY = r.key || '';
+    KEY = '';
+    CSRF_TOKEN = '';
+    SESSION_OK = false;
+    // Show key once on settings surface, then force login after copy/ack
+    renderSettings();
+    toast(t('settings.keyOnce'), 'warn');
+  } catch(e){ toast(e.message, 'error'); }
+}
+
+function copySettingsNewKey(){
+  if(!SETTINGS_NEW_KEY) return;
+  try {
+    navigator.clipboard.writeText(SETTINGS_NEW_KEY).then(function(){
+      toast(LANG==='id'?'Key disalin':'Key copied', 'success');
+    }).catch(function(){
+      // fallback
+      var ta=document.createElement('textarea'); ta.value=SETTINGS_NEW_KEY; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); toast(LANG==='id'?'Key disalin':'Key copied', 'success'); } catch(e){ toast(e.message,'error'); }
+      ta.remove();
+    });
+  } catch(e){ toast(e.message,'error'); }
+}
+
+async function ackNewGatewayKeyAndLogout(){
+  SETTINGS_NEW_KEY = '';
+  try { await doLogout(); } catch(e){ location.reload(); }
+}
+
+async function renderSettings(){
+  var root = document.getElementById('pageContent');
+  if(!root) return;
+  root.innerHTML = '<div style="padding:40px;color:var(--mut);text-align:center">Loading settings…</div>';
+  if(!SETTINGS_INFO || SETTINGS_INFO.error) await loadSettingsInfo();
+  else {
+    // refresh quietly
+    loadSettingsInfo().then(function(){ if(CUR_PAGE==='settings' && !SETTINGS_NEW_KEY) {/* keep */ } });
+  }
+  var info = SETTINGS_INFO || {};
+  var curTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+  var infoRows = [
+    ['Listen', info.listen || ((info.host||'')+':'+(info.port||''))],
+    ['Uptime', fmtUptime(info.uptimeSec)],
+    ['Started', info.startedAt || '—'],
+    ['Node', info.node || '—'],
+    ['Platform', (info.platform||'')+(info.arch?(' / '+info.arch):'')],
+    ['Data dir', info.dataDir || '—'],
+    ['Providers', (info.enabledProviders!=null?info.enabledProviders:'—')+' / '+(info.providerCount!=null?info.providerCount:'—')],
+    ['Sessions', info.sessionCount!=null?info.sessionCount:'—'],
+    ['Request logs', info.requestLogCount!=null?fmtNum(info.requestLogCount):'—'],
+    ['PID', info.pid!=null?info.pid:'—'],
+  ].map(function(pair){
+    return '<tr><td style="color:var(--mut);width:140px;font-size:12px">'+escHtml(pair[0])+'</td><td style="font-family:var(--mono);font-size:12px;word-break:break-all">'+escHtml(String(pair[1]))+'</td></tr>';
+  }).join('');
+
+  var newKeyBox = '';
+  if(SETTINGS_NEW_KEY){
+    newKeyBox =
+      '<div style="margin-top:12px;padding:12px;border-radius:10px;border:1px solid var(--warn);background:#f0a93b15">'
+      + '<div style="color:var(--warn);font-weight:700;margin-bottom:6px">'+escHtml(t('settings.keyOnce'))+'</div>'
+      + '<div style="font-family:var(--mono);font-size:12px;word-break:break-all;margin-bottom:10px">'+escHtml(SETTINGS_NEW_KEY)+'</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button class="btn primary" onclick="copySettingsNewKey()">'+escHtml(t('settings.copyKey'))+'</button>'
+      + '<button class="btn" onclick="ackNewGatewayKeyAndLogout()">Login with new key →</button>'
+      + '</div></div>';
+  }
+
+  root.innerHTML =
+    '<div class="usage-head">'
+    + '<div class="title-block"><h2 style="display:flex;align-items:center;gap:8px">'+icon('settings',16)+' '+escHtml(t('settings.title'))+'</h2>'
+    + '<p>'+escHtml(t('settings.subtitle'))+'</p></div>'
+    + '<button class="btn sm" onclick="SETTINGS_INFO=null;renderSettings()">'+escHtml(t('common.refresh'))+'</button>'
+    + '</div>'
+
+    + '<div class="split-grid">'
+    // Language
+    + '<div class="panel"><div class="panel-head"><h2>'+escHtml(t('settings.language'))+'</h2></div><div class="panel-body">'
+    + '<p style="font-size:13px;color:var(--mut);margin-bottom:12px">'+escHtml(t('settings.language.desc'))+'</p>'
+    + '<div class="chip-row">'
+    + '<div class="chip '+(LANG==='en'?'active':'')+'" onclick="setLang(\'en\')">English</div>'
+    + '<div class="chip '+(LANG==='id'?'active':'')+'" onclick="setLang(\'id\')">Indonesia</div>'
+    + '</div></div></div>'
+
+    // Theme
+    + '<div class="panel"><div class="panel-head"><h2>'+escHtml(t('settings.theme'))+'</h2></div><div class="panel-body">'
+    + '<p style="font-size:13px;color:var(--mut);margin-bottom:12px">'+escHtml(t('settings.theme.desc'))+'</p>'
+    + '<div class="chip-row">'
+    + '<div class="chip '+(curTheme==='dark'?'active':'')+'" onclick="applyTheme(\'dark\');renderSettings()">'+escHtml(t('settings.theme.dark'))+'</div>'
+    + '<div class="chip '+(curTheme==='light'?'active':'')+'" onclick="applyTheme(\'light\');renderSettings()">'+escHtml(t('settings.theme.light'))+'</div>'
+    + '</div></div></div>'
+    + '</div>'
+
+    // Gateway info (no version row — stays in sidebar)
+    + '<div class="panel" style="margin-top:14px"><div class="panel-head"><h2 style="display:flex;align-items:center;gap:8px">'+icon('cpu',16)+' '+escHtml(t('settings.info'))+'</h2></div>'
+    + '<div class="panel-body">'
+    + '<p style="font-size:13px;color:var(--mut);margin-bottom:12px">'+escHtml(t('settings.info.desc'))+'</p>'
+    + (info.error ? ('<div style="color:var(--err)">'+escHtml(info.error)+'</div>') : ('<div class="table-wrap"><table><tbody>'+infoRows+'</tbody></table></div>'))
+    + '</div></div>'
+
+    + '<div class="split-grid" style="margin-top:14px">'
+    // Session
+    + '<div class="panel"><div class="panel-head"><h2>'+escHtml(t('settings.session'))+'</h2></div><div class="panel-body">'
+    + '<p style="font-size:13px;color:var(--mut);margin-bottom:12px">'+escHtml(t('settings.session.desc'))+'</p>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    + '<button class="btn" onclick="doLogout()">'+escHtml(t('settings.logout'))+'</button>'
+    + '<button class="btn" onclick="confirmClearLocalDashboardData()">'+escHtml(t('settings.clearLocal'))+'</button>'
+    + '</div></div></div>'
+
+    // Logs
+    + '<div class="panel"><div class="panel-head"><h2>'+escHtml(t('settings.logs'))+'</h2></div><div class="panel-body">'
+    + '<p style="font-size:13px;color:var(--mut);margin-bottom:12px">'+escHtml(t('settings.logs.desc'))+'</p>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    + '<button class="btn sm" onclick="doPurgeRequestLogs(7)">'+escHtml(t('settings.purge7'))+'</button>'
+    + '<button class="btn sm" onclick="doPurgeRequestLogs(30)">'+escHtml(t('settings.purge30'))+'</button>'
+    + '<button class="btn sm" style="color:var(--err)" onclick="doPurgeRequestLogs(\'all\')">'+escHtml(t('settings.purgeAll'))+'</button>'
+    + '</div></div></div>'
+    + '</div>'
+
+    // Key health
+    + '<div class="panel" style="margin-top:14px"><div class="panel-head"><h2>'+escHtml(t('settings.health'))+'</h2></div><div class="panel-body">'
+    + '<p style="font-size:13px;color:var(--mut);margin-bottom:12px">'+escHtml(t('settings.health.desc'))+'</p>'
+    + '<button class="btn" onclick="doResetAllKeyHealth()">'+escHtml(t('settings.resetHealth'))+'</button>'
+    + '</div></div>'
+
+    // Danger zone
+    + '<div class="panel" style="margin-top:14px;border-color:#f5535f55"><div class="panel-head"><h2 style="color:var(--err)">'+escHtml(t('settings.danger'))+'</h2></div><div class="panel-body">'
+    + '<p style="font-size:13px;color:var(--mut);margin-bottom:12px">'+escHtml(t('settings.danger.desc'))+'</p>'
+    + (info.keyEnvManaged
+        ? ('<div style="padding:10px 12px;border-radius:8px;background:#f0a93b15;color:var(--warn);font-size:12px">'+escHtml(t('settings.envManaged'))+'</div>')
+        : ('<button class="btn" style="color:var(--err);border-color:var(--err)" onclick="doRotateGatewayKey()">'+escHtml(t('settings.rotateKey'))+'</button>'))
+    + newKeyBox
+    + '</div></div>';
+}
+
 function renderKeys(){
   var keys = SUM.clientKeys || [];
   var rows=keys.map(function(k){
@@ -4429,6 +4797,7 @@ adminFetch('/admin/summary',{headers:hdr()}).then(function(r){
     {icKey:'models',    lbl:'Go to Models',         sub:'g m', run:function(){ goPage('models'); }},
     {icKey:'network',   lbl:'Go to Proxies',        sub:'g x', run:function(){ goPage('egress'); }},
     {icKey:'keys',      lbl:'Go to API Keys',       sub:'g k', run:function(){ goPage('keys'); }},
+    {icKey:'settings',  lbl:'Go to Settings',       sub:'g s', run:function(){ goPage('settings'); }},
     {icKey:'convert',   lbl:'Refresh data',         sub:'r',   run:function(){ try{refreshAll();toast('Refreshed','success');}catch(e){toast(e.message,'error');} }},
     {icKey:'zap',       lbl:'Test All Providers',   sub:'test',run:function(){ try{testAllProviders();}catch(e){toast(e.message,'error');} }},
     {icKey:'settings',  lbl:'Logout', sub:'logout', run:async function(){
