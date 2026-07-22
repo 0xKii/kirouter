@@ -2118,6 +2118,12 @@ function acctHealth(a){
     var anyLeft=a.quotaWindows.some(function(w){return (w.remaining||0)>0});
     if(!anyLeft) return 'exhausted';
   }
+  // lastError signals real upstream failures even when authStatus stays "active"
+  var err=String(a.lastError||'').toLowerCase();
+  if(err){
+    if(/402|payment|insufficient|credit|balance|quota.?exhaust|额度不足|额度等待|credits exhausted/.test(err)) return 'exhausted';
+    if(/401|403|reauth|unauthorized|forbidden|banned|invalid.?key|revoked|expired/.test(err)) return 'error';
+  }
   if((a.failureCount||0)>=5) return 'error';
   return 'ok';
 }
