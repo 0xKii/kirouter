@@ -38,7 +38,8 @@
     "bin/",
     "lib/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "public/"
   ],
   "repository": {
     "type": "git",
